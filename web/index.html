@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GunCon 3 Adapter</title>
+<style>
+:root{--bg:#121417;--panel:#1b1e23;--panel2:#23272e;--line:#2f343c;--fg:#e6e8eb;--dim:#8b939e;--acc:#ff6b35;--ok:#3ecf8e;--warn:#f5b942;--bad:#ef5b5b;
+--p1:#ff5d5d;--p2:#4da3ff;--p3:#5be37d;--p4:#ffd23f}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
+.tag{color:var(--dim);font-size:12px}
+header .sp{flex:1}
+nav{display:flex;gap:4px;padding:10px 20px 0;border-bottom:1px solid var(--line);background:var(--panel);overflow-x:auto}
+nav button{background:none;border:0;color:var(--dim);padding:9px 14px;font:inherit;cursor:pointer;border-bottom:2px solid transparent}
+nav button.on{color:var(--fg);border-color:var(--acc)}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+section{display:none}section.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;background:#444;display:inline-block;flex:none}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+.kv>span:nth-child(odd){color:var(--dim)}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0}
+.chip{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--panel2);color:var(--dim);border:1px solid var(--line)}
+.chip.on{background:var(--acc);color:#111;border-color:var(--acc)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button.b{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:7px 13px;font:inherit;cursor:pointer}
+button.b:hover{border-color:#4a515c}
+button.b.pri{background:var(--acc);border-color:var(--acc);color:#111;font-weight:600}
+button.b.danger{color:var(--bad)}
+button.b:disabled{opacity:.4;cursor:default}
+.badge{font-size:11px;padding:1px 7px;border-radius:5px;white-space:nowrap}
+.badge.ok{background:#1d3b2e;color:var(--ok)}.badge.no{background:#3b2a1d;color:var(--warn)}
+.form{display:grid;grid-template-columns:minmax(150px,230px) 1fr;gap:12px 18px;align-items:center}
+.form>label{color:var(--dim)}
+.form .help{grid-column:2;color:var(--dim);font-size:12px;margin-top:-8px}
+.form select{justify-self:start;min-width:200px}
+select,input[type=number]{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
+input[type=number]{width:90px}
+input[type=range]{width:200px;accent-color:var(--acc)}
+h2{font-size:15px;margin:26px 0 12px}section>h2:first-child{margin-top:0}
+.note{color:var(--dim);font-size:13px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 18px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.on{opacity:1}
+table{border-collapse:collapse}td,th{padding:6px 14px 6px 0;text-align:left}th{color:var(--dim);font-weight:500}
+.mini{width:54px;height:54px;border:1px solid var(--line);border-radius:6px;position:relative;background:var(--panel2)}
+.mini i{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--acc);left:50%;top:50%}
+.sticks{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--dim)}
+#overlay{position:fixed;inset:0;background:#000;display:none;z-index:10;cursor:none}
+#overlay.on{display:block}
+#overlay canvas{position:absolute;inset:0;width:100%;height:100%}
+#ovl-ui{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;color:#ddd;width:min(680px,90vw)}
+#ovl-ui h2{font-size:26px;margin:0 0 8px}
+#ovl-ui p{margin:6px 0;color:#aaa;font-size:16px}
+#ovl-ui .act{pointer-events:auto;margin-top:18px;display:flex;gap:10px;justify-content:center;cursor:default}
+#overlay.cursor{cursor:default}
+kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
+@media (max-width:600px){.form{grid-template-columns:1fr}.form .help{grid-column:1;margin-top:-6px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>GunCon 3 → XInput</h1><span class="tag" id="fw"></span><span class="sp"></span>
+  <span class="tag" id="link">connecting…</span>
+</header>
+<nav id="tabs">
+  <button data-t="guns" class="on">Guns</button>
+  <button data-t="settings">Settings</button>
+  <button data-t="buttons">Buttons</button>
+  <button data-t="system">System</button>
+</nav>
+<main>
+<section id="guns" class="on">
+  <div class="row" style="margin-bottom:14px">
+    <button class="b pri" id="btnTest">Fullscreen test</button>
+    <span class="note">Active aspect</span>
+    <select id="liveAspect"></select>
+  </div>
+  <div class="grid" id="gunGrid"></div>
+  <h2>Calibration</h2>
+  <p class="note">Run this in fullscreen on the monitor you play on, from where you play. Each gun keeps its own calibration, tied to its hub port.</p>
+  <div class="form">
+    <label>Points</label>
+    <select id="calPts"><option value="5">5 (corners + centre)</option><option value="9">9 (3×3 grid)</option></select>
+    <label>Target inset</label>
+    <div class="row"><input type="range" id="calInset" min="4" max="25" value="10"><span id="calInsetV" class="mono"></span></div>
+    <div class="help">How far targets sit from the screen edge. Right at the edge the IR sensors can be hard to see.</div>
+  </div>
+</section>
+
+<section id="settings">
+  <h2>Output</h2>
+  <div class="form">
+    <label>XInput pads</label>
+    <select id="s_pads"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+    <div class="help">How many controllers the PC sees. Takes effect next time it starts in controller mode.</div>
+  </div>
+  <h2>Aspect / game area</h2>
+  <div class="form">
+    <label>Default at power-up</label><select id="s_aspectDefault"></select>
+    <label>Hotkey cycles through</label><div class="row" id="s_cycle"></div>
+    <div class="help">Hold <b>C1 + C2</b> on any gun and pull the trigger for the next mode. The LED blinks the mode number.</div>
+    <label>Monitor aspect (w/h)</label>
+    <div class="row"><input type="number" step="0.0001" id="s_monitorAspect"><button class="b" id="detectAspect">Use this screen</button><span class="note mono" id="aspectHint"></span></div>
+    <div class="help">Saved automatically when you calibrate. 4:3 / 3:4 / 5:4 squeeze the full joystick range into a centred box of that shape.</div>
+    <label>Custom area (%)</label>
+    <div class="row">x0 <input type="number" id="c0" step="0.1"> y0 <input type="number" id="c1" step="0.1"> x1 <input type="number" id="c2" step="0.1"> y1 <input type="number" id="c3" step="0.1"></div>
+  </div>
+  <h2>Aim</h2>
+  <div class="form">
+    <label>Off-screen behaviour</label>
+    <select id="s_offscreen"><option value="0">Clamp to edge</option><option value="1">Hold last position</option><option value="2">Jump to top-left corner</option></select>
+    <label>Off-screen margin</label>
+    <div class="row"><input type="range" id="s_margin" min="0" max="50"><span id="s_marginV" class="mono"></span></div>
+    <div class="help">How far past the game area the aim must go before it counts as off-screen.</div>
+    <label>Smoothing</label>
+    <div class="row"><input type="range" id="s_smoothing" min="0" max="9"><span id="s_smoothingV" class="mono"></span></div>
+    <div class="help">0 = raw. Higher reduces jitter but adds a little lag.</div>
+  </div>
+  <h2>Thumbsticks &amp; hotkeys</h2>
+  <div class="form">
+    <label>Stick A →</label><select id="s_stickA"></select>
+    <label>Stick B →</label><select id="s_stickB"></select>
+    <label>D-pad threshold</label>
+    <div class="row"><input type="range" id="s_deadzone" min="5" max="120"><span id="s_deadzoneV" class="mono"></span></div>
+    <label>Hotkeys (C1 + C2)</label><select id="s_hotkeys"><option value="1">Enabled</option><option value="0">Disabled</option></select>
+    <div class="help">C1+C2 + Trigger = next aspect. Hold C1+C2 for 3 s = restart into this page. Lone C1/C2 presses still reach the PC.</div>
+  </div>
+  <div class="row" style="margin-top:22px"><button class="b pri" id="saveSettings">Save settings</button></div>
+</section>
+
+<section id="buttons">
+  <h2>Button mapping</h2>
+  <p class="note">Same mapping for every gun. Aim is always the left stick, as an absolute position.</p>
+  <table id="mapTable"><tr><th>GunCon 3</th><th>XInput</th></tr></table>
+  <div class="row" style="margin-top:18px"><button class="b pri" id="saveMap">Save mapping</button></div>
+</section>
+
+<section id="system">
+  <h2>Mode</h2>
+  <p class="note">This page only exists in config mode; in controller mode the adapter is 1–4 XInput pads.<br>
+  To get back here: hold <b>C1 + C2</b> on a gun for 3 s, or hold the board's <b>BOOT</b> button for 1 s.</p>
+  <div class="row">
+    <button class="b pri" id="toXinput">Restart as controllers</button>
+    <button class="b" id="toBootsel">Firmware update (BOOTSEL)</button>
+    <button class="b danger" id="toDefaults">Reset settings (keeps calibration)</button>
+  </div>
+  <h2>About</h2>
+  <div class="kv" id="about"></div>
+</section>
+</main>
+
+<div id="overlay"><canvas id="cv"></canvas><div id="ovl-ui"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const BTN=["Trigger","A1","A2","B1","B2","C1","C2","Stick A click","Stick B click"];
+const BTN_SHORT=["Trig","A1","A2","B1","B2","C1","C2","A●","B●"];
+const XI=["—","A","B","X","Y","LB","RB","LT","RT","Back","Start","Guide","LS click","RS click","D-pad up","D-pad down","D-pad left","D-pad right"];
+const ASPECTS=["Full screen","4:3","3:4 (vertical)","5:4","Custom"];
+const DEST=["Unused","Right stick","D-pad"];
+const PCOL=["--p1","--p2","--p3","--p4"].map(v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+let S=null,ST=null;
+
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2200)}
+async function post(url,obj){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams(obj).toString()});return r.json()}
+function opts(sel,arr){sel.innerHTML=arr.map((t,i)=>`<option value="${i}">${t}</option>`).join("")}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+// ---------- tabs ----------
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll("main section").forEach(s=>s.classList.toggle("on",s.id===b.dataset.t));
+});
+
+// ---------- gun cards ----------
+function buildCards(){
+  $("#gunGrid").innerHTML=[0,1,2,3].map(i=>`
+  <div class="card" id="g${i}">
+    <h3><span class="dot"></span><span style="color:${PCOL[i]};white-space:nowrap">Player ${i+1}</span><span style="flex:1"></span><span class="badge cal"></span></h3>
+    <div class="kv mono">
+      <span>port</span><span class="port">—</span>
+      <span>raw</span><span class="raw">—</span>
+      <span>screen</span><span class="scr">—</span>
+      <span>stick</span><span class="stk">—</span>
+      <span>status</span><span class="ir">—</span>
+    </div>
+    <div class="chips">${BTN_SHORT.map((b,k)=>`<span class="chip" data-k="${k}">${b}</span>`).join("")}</div>
+    <div class="row" style="justify-content:space-between">
+      <div class="sticks"><div class="mini sa"><i></i></div>A<div class="mini sb"><i></i></div>B</div>
+      <div class="row"><button class="b pri cal-btn" data-g="${i}">Calibrate</button><button class="b clr-btn" data-g="${i}" title="Forget calibration">✕</button></div>
+    </div>
+  </div>`).join("");
+  document.querySelectorAll(".cal-btn").forEach(b=>b.onclick=()=>startCalib(+b.dataset.g));
+  document.querySelectorAll(".clr-btn").forEach(b=>b.onclick=async()=>{
+    if(!confirm(`Forget the calibration for player ${+b.dataset.g+1}?`))return;
+    const r=await post("/api/calib/clear",{gun:b.dataset.g});toast(r.ok?"Calibration cleared":"Failed");loadSettings();
+  });
+}
+
+function renderState(){
+  if(!ST)return;
+  ST.guns.forEach((g,i)=>{
+    const c=$("#g"+i);if(!c)return;
+    c.querySelector(".dot").classList.toggle("on",!!g.c);
+    c.querySelector(".port").textContent=g.c?(g.port?`hub port ${g.port}`:"direct"):"not connected";
+    const cal=S&&S.calib[i].valid;
+    const bd=c.querySelector(".cal");bd.textContent=cal?"calibrated":"uncalibrated";bd.className="badge cal "+(cal?"ok":"no");
+    c.querySelector(".raw").textContent=g.c?`${g.x}, ${g.y}  z ${g.z}`:"—";
+    c.querySelector(".scr").textContent=g.c&&g.cal?`${(g.u*100).toFixed(1)}%, ${(g.v*100).toFixed(1)}%${g.off?"  off-screen":""}`:"—";
+    c.querySelector(".stk").textContent=g.c?`${g.lx}, ${g.ly}`:"—";
+    c.querySelector(".ir").textContent=g.c?`ind ${g.ind&1?"●":"○"}${g.ind&2?"●":"○"} · ${g.bad} err`:"—";
+    c.querySelectorAll(".chip").forEach(ch=>ch.classList.toggle("on",!!(g.b>>ch.dataset.k&1)));
+    const st=(el,x,y)=>{const d=el.querySelector("i");d.style.left=(x/255*100)+"%";d.style.top=(y/255*100)+"%"};
+    st(c.querySelector(".sa"),g.ax,g.ay);st(c.querySelector(".sb"),g.bx,g.by);
+    c.querySelector(".cal-btn").disabled=!g.c;
+  });
+  const la=$("#liveAspect");if(document.activeElement!==la)la.value=ST.aspect;
+}
+
+async function poll(){
+  for(;;){
+    try{
+      const r=await fetch("/api/state",{cache:"no-store"});
+      ST=await r.json();
+      $("#link").textContent="connected";$("#link").style.color="var(--ok)";
+      if(!overlayOn())renderState();else if(window.onState)window.onState(ST);
+    }catch(e){$("#link").textContent="disconnected";$("#link").style.color="var(--bad)";await sleep(500)}
+    await sleep(overlayOn()?10:60);
+  }
+}
+
+// ---------- settings ----------
+async function loadSettings(){
+  S=await (await fetch("/api/settings",{cache:"no-store"})).json();
+  $("#fw").textContent="v"+S.fw;
+  $("#s_pads").value=S.pads;
+  $("#s_aspectDefault").value=S.aspectDefault;
+  document.querySelectorAll("#s_cycle input").forEach(cb=>cb.checked=!!(S.aspectCycle>>cb.value&1));
+  $("#s_monitorAspect").value=(+S.monitorAspect).toFixed(4);
+  S.custom.forEach((v,i)=>$("#c"+i).value=(v*100).toFixed(1));
+  $("#s_offscreen").value=S.offscreen;
+  for(const k of ["margin","smoothing","deadzone"]){$("#s_"+k).value=S[k];$("#s_"+k).oninput()}
+  $("#s_stickA").value=S.stickA;$("#s_stickB").value=S.stickB;
+  $("#s_hotkeys").value=S.hotkeys;
+  S.map.forEach((v,i)=>$("#m"+i).value=v);
+  $("#about").innerHTML=`<span>Firmware</span><span class="mono">${S.fw}</span><span>Guns supported</span><span>${S.maxGuns}</span><span>Address</span><span class="mono">http://192.168.7.1</span>`;
+  renderState();
+}
+
+function initForms(){
+  opts($("#liveAspect"),ASPECTS);
+  $("#liveAspect").onchange=e=>post("/api/aspect",{a:e.target.value});
+  opts($("#s_aspectDefault"),ASPECTS);
+  $("#s_cycle").innerHTML=ASPECTS.map((a,i)=>`<label class="note"><input type="checkbox" value="${i}"> ${a}</label>`).join("");
+  opts($("#s_stickA"),DEST);opts($("#s_stickB"),DEST);
+  const lbl={margin:v=>v+"%",smoothing:v=>v==0?"off":v,deadzone:v=>v};
+  for(const k in lbl){const el=$("#s_"+k);el.oninput=()=>$("#s_"+k+"V").textContent=lbl[k](el.value)}
+  $("#calInset").oninput=()=>$("#calInsetV").textContent=$("#calInset").value+"%";$("#calInset").oninput();
+  $("#mapTable").innerHTML+=BTN.map((b,i)=>`<tr><td>${b}</td><td><select id="m${i}">${XI.map((x,j)=>`<option value="${j}">${x}</option>`).join("")}</select></td></tr>`).join("");
+  $("#detectAspect").onclick=()=>{$("#s_monitorAspect").value=(screen.width/screen.height).toFixed(4)};
+  $("#aspectHint").textContent=`this screen: ${screen.width}×${screen.height}`;
+  $("#saveSettings").onclick=async()=>{
+    let cyc=0;document.querySelectorAll("#s_cycle input").forEach(cb=>{if(cb.checked)cyc|=1<<cb.value});
+    const o={pads:$("#s_pads").value,aspectDefault:$("#s_aspectDefault").value,aspectCycle:cyc,
+      monitorAspect:$("#s_monitorAspect").value,offscreen:$("#s_offscreen").value,margin:$("#s_margin").value,
+      smoothing:$("#s_smoothing").value,stickA:$("#s_stickA").value,stickB:$("#s_stickB").value,
+      deadzone:$("#s_deadzone").value,hotkeys:$("#s_hotkeys").value};
+    for(let i=0;i<4;i++)o["custom"+i]=(+$("#c"+i).value/100).toFixed(4);
+    const r=await post("/api/settings",o);toast(r.ok?"Saved":"Save failed");loadSettings();
+  };
+  $("#saveMap").onclick=async()=>{
+    const o={};for(let i=0;i<BTN.length;i++)o["map"+i]=$("#m"+i).value;
+    const r=await post("/api/settings",o);toast(r.ok?"Mapping saved":"Save failed");loadSettings();
+  };
+  $("#toXinput").onclick=async()=>{await post("/api/reboot",{mode:"xinput"});toast("Restarting as controllers…")};
+  $("#toBootsel").onclick=async()=>{if(!confirm("Reboot into the USB bootloader? Copy a .uf2 onto the drive that appears."))return;await post("/api/reboot",{mode:"bootsel"});toast("Rebooting to BOOTSEL…")};
+  $("#toDefaults").onclick=async()=>{if(!confirm("Reset all settings to defaults? Calibrations are kept."))return;const r=await post("/api/defaults",{});toast(r.ok?"Defaults restored":"Failed");loadSettings()};
+  $("#btnTest").onclick=startTest;
+}
+
+// ---------- homography: least squares with Hartley normalization ----------
+function normT(pts){
+  let mx=0,my=0;pts.forEach(p=>{mx+=p[0];my+=p[1]});mx/=pts.length;my/=pts.length;
+  let d=0;pts.forEach(p=>d+=Math.hypot(p[0]-mx,p[1]-my));d/=pts.length;const s=d>0?Math.SQRT2/d:1;
+  return [[s,0,-s*mx],[0,s,-s*my],[0,0,1]];
+}
+const mul=(A,B)=>A.map(r=>B[0].map((_,j)=>r.reduce((a,v,k)=>a+v*B[k][j],0)));
+const ap=(T,p)=>{const w=T[2][0]*p[0]+T[2][1]*p[1]+T[2][2];return[(T[0][0]*p[0]+T[0][1]*p[1]+T[0][2])/w,(T[1][0]*p[0]+T[1][1]*p[1]+T[1][2])/w]};
+function inv3(m){
+  const [a,b,c]=m[0],[d,e,f]=m[1],[g,h,i]=m[2];const A=e*i-f*h,B=-(d*i-f*g),C=d*h-e*g,det=a*A+b*B+c*C;
+  return [[A/det,-(b*i-c*h)/det,(b*f-c*e)/det],[B/det,(a*i-c*g)/det,-(a*f-c*d)/det],[C/det,-(a*h-b*g)/det,(a*e-b*d)/det]];
+}
+function solve(A,b){
+  const n=b.length;A=A.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;[A[c],A[p]]=[A[p],A[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;
+    for(let r=0;r<n;r++)if(r!==c){const f=A[r][c]/A[c][c];for(let k=c;k<=n;k++)A[r][k]-=f*A[c][k]}}
+  return A.map((r,i)=>r[n]/r[i]);
+}
+function homography(src,dst){ // raw -> normalized screen
+  const Ts=normT(src),Td=normT(dst),s=src.map(p=>ap(Ts,p)),d=dst.map(p=>ap(Td,p));
+  const N=Array.from({length:8},()=>Array(8).fill(0)),v=Array(8).fill(0);
+  const add=(row,y)=>{for(let i=0;i<8;i++){v[i]+=row[i]*y;for(let j=0;j<8;j++)N[i][j]+=row[i]*row[j]}};
+  s.forEach(([x,y],k)=>{const[u,w]=d[k];add([x,y,1,0,0,0,-x*u,-y*u],u);add([0,0,0,x,y,1,-x*w,-y*w],w)});
+  const h=solve(N,v);if(!h)return null;
+  let H=mul(mul(inv3(Td),[[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]]),Ts);
+  const z=H[2][2];if(!isFinite(z)||Math.abs(z)<1e-12)return null;
+  H=H.map(r=>r.map(x=>x/z));
+  return H.flat().every(isFinite)?H:null;
+}
+
+// ---------- fullscreen overlay ----------
+const ov=$("#overlay"),cv=$("#cv"),ui=$("#ovl-ui"),ctx=cv.getContext("2d");
+const overlayOn=()=>ov.classList.contains("on");
+async function openOverlay(){
+  ov.classList.add("on");ui.removeAttribute("style");
+  try{await ov.requestFullscreen({navigationUI:"hide"})}catch(e){toast("Fullscreen was refused; press F11 for best results")}
+  await sleep(300);resize();
+}
+function closeOverlay(){
+  window.onState=null;window.onKey=null;ov.classList.remove("on");ui.innerHTML="";
+  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+  renderState();
+}
+function resize(){const r=window.devicePixelRatio||1;cv.width=innerWidth*r;cv.height=innerHeight*r;ctx.setTransform(r,0,0,r,0,0)}
+addEventListener("resize",()=>{if(overlayOn())resize()});
+document.addEventListener("fullscreenchange",()=>{if(!document.fullscreenElement&&overlayOn())closeOverlay()});
+addEventListener("keydown",e=>{if(!overlayOn())return;if(e.key==="Escape"){closeOverlay();return}if(window.onKey){e.preventDefault();window.onKey(e)}});
+ov.addEventListener("mousemove",()=>{ov.classList.add("cursor");clearTimeout(ov._t);ov._t=setTimeout(()=>ov.classList.remove("cursor"),1500)});
+
+function crosshair(x,y,col,r=26,lw=2){
+  ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();
+  ctx.moveTo(x-r,y);ctx.lineTo(x-r*.3,y);ctx.moveTo(x+r*.3,y);ctx.lineTo(x+r,y);
+  ctx.moveTo(x,y-r);ctx.lineTo(x,y-r*.3);ctx.moveTo(x,y+r*.3);ctx.lineTo(x,y+r);ctx.stroke();
+  ctx.beginPath();ctx.arc(x,y,r*.55,0,7);ctx.stroke();
+}
+function target(x,y,t){
+  const s=Math.min(innerWidth,innerHeight)/14;
+  [1,.66,.33].forEach((k,i)=>{ctx.beginPath();ctx.arc(x,y,s*k,0,7);ctx.fillStyle=i%2?"#111":"#fff";ctx.fill()});
+  ctx.fillStyle="#ff3b30";ctx.beginPath();ctx.arc(x,y,s*.12+Math.sin(t/180)*2,0,7);ctx.fill();
+}
+
+// ---------- calibration ----------
+function calibPoints(n,inset){
+  const a=inset,b=1-inset;
+  if(n==9){const p=[];for(const y of [a,.5,b])for(const x of [a,.5,b])p.push([x,y]);return p}
+  return [[a,a],[b,a],[b,b],[a,b],[.5,.5]];
+}
+async function startCalib(gun){
+  if(!ST||!ST.guns[gun].c){toast("That gun isn't connected");return}
+  const pts=calibPoints(+$("#calPts").value,+$("#calInset").value/100);
+  await openOverlay();
+  let step=0,raw=[],lastShot=ST.guns[gun].shot,H=null,hits=[],phase="aim",prevB=ST.guns[gun].b;
+  const col=PCOL[gun];
+  const showAim=()=>{ui.innerHTML=`<h2 style="color:${col}">Player ${gun+1} calibration</h2><p>Aim at the target and pull the trigger (${step+1}/${pts.length})</p><p><kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> previous point</p>`};
+  const restart=()=>{step=0;raw=[];hits=[];H=null;phase="aim";showAim()};
+  const finish=()=>{
+    H=homography(raw,pts);
+    if(!H){
+      phase="fail";
+      ui.innerHTML=`<h2>Calibration failed</h2><p>The shots didn't form a usable shape. Check the gun can see its IR sensors at every target.</p><div class="act"><button class="b pri" id="cr">Redo</button><button class="b" id="cc">Cancel</button></div>`;
+      $("#cr").onclick=restart;$("#cc").onclick=closeOverlay;return;
+    }
+    const errs=raw.map((r,k)=>{const q=ap(H,r);return Math.hypot((q[0]-pts[k][0])*innerWidth,(q[1]-pts[k][1])*innerHeight)});
+    const avg=errs.reduce((a,b)=>a+b)/errs.length,worst=Math.max(...errs);
+    phase="verify";
+    ui.innerHTML=`<h2 style="color:${col}">Check the aim</h2><p>The crosshair should sit where you point. Pull the trigger to leave test marks.</p>
+      <p class="mono">fit error: avg ${avg.toFixed(1)} px · worst ${worst.toFixed(1)} px${pts.length>4&&worst>innerHeight*.04?" (high, consider redoing)":""}</p>
+      <p>On the gun: <b>C2</b> save · <b>C1</b> redo &nbsp;·&nbsp; <kbd>Enter</kbd> save · <kbd>R</kbd> redo · <kbd>Esc</kbd> cancel</p>
+      <div class="act"><button class="b pri" id="cs">Save</button><button class="b" id="cr">Redo</button><button class="b" id="cc">Cancel</button></div>`;
+    $("#cs").onclick=save;$("#cr").onclick=restart;$("#cc").onclick=closeOverlay;
+  };
+  const save=async()=>{
+    if(phase!=="verify")return;phase="saving";
+    const o={gun,points:pts.length,monitorAspect:(innerWidth/innerHeight).toFixed(5)};
+    [H[0][0],H[0][1],H[0][2],H[1][0],H[1][1],H[1][2],H[2][0],H[2][1]].forEach((v,k)=>o["h"+k]=v.toPrecision(9));
+    let r={ok:false};try{r=await post("/api/calib",o)}catch(e){}
+    closeOverlay();toast(r.ok?`Player ${gun+1} calibrated`:"Save failed");loadSettings();
+  };
+  window.onKey=e=>{
+    if(phase==="aim"&&e.key==="Backspace"&&step>0){step--;raw.pop();showAim()}
+    else if(phase==="verify"){if(e.key==="Enter")save();else if(e.key==="r"||e.key==="R")restart()}
+  };
+  const draw=g=>{
+    const W=innerWidth,Hh=innerHeight;ctx.clearRect(0,0,W,Hh);
+    if(phase==="aim"){
+      pts.forEach((p,k)=>{if(k<step){ctx.fillStyle="#3ecf8e";ctx.beginPath();ctx.arc(p[0]*W,p[1]*Hh,6,0,7);ctx.fill()}});
+      if(step<pts.length)target(pts[step][0]*W,pts[step][1]*Hh,performance.now());
+    }else if(phase==="verify"&&H){
+      pts.forEach(p=>{ctx.strokeStyle="#555";ctx.lineWidth=1;ctx.beginPath();ctx.arc(p[0]*W,p[1]*Hh,10,0,7);ctx.stroke()});
+      ctx.fillStyle="#fff";hits.slice(-30).forEach(h=>{ctx.beginPath();ctx.arc(h[0]*W,h[1]*Hh,4,0,7);ctx.fill()});
+      const q=ap(H,[g.x,g.y]);crosshair(q[0]*W,q[1]*Hh,col);
+    }
+  };
+  window.onState=st=>{
+    const g=st.guns[gun];
+    if(!g.c){phase="fail";ui.innerHTML=`<h2>Gun disconnected</h2><p><kbd>Esc</kbd> to close</p>`;ctx.clearRect(0,0,innerWidth,innerHeight);return}
+    const shot=g.shot!==lastShot;lastShot=g.shot;
+    const pressed=k=>(g.b>>k&1)&&!(prevB>>k&1);
+    if(phase==="aim"&&shot){raw.push([g.sx,g.sy]);step++;if(step>=pts.length)finish();else showAim()}
+    else if(phase==="verify"){
+      if(shot)hits.push(ap(H,[g.sx,g.sy]));
+      if(pressed(6))save();else if(pressed(5))restart();
+    }
+    prevB=g.b;
+    draw(g);
+  };
+  showAim();
+}
+
+// ---------- fullscreen test ----------
+async function startTest(){
+  await openOverlay();
+  ui.style.top="36px";ui.style.transform="translateX(-50%)";
+  let lastAspect=-1;
+  const show=a=>{ui.innerHTML=`<p style="opacity:.65">Game area: <b>${ASPECTS[a]}</b> · <kbd>1</kbd>–<kbd>5</kbd> or C1+C2+Trigger to change · <kbd>Esc</kbd> exit</p>`};
+  window.onKey=e=>{const n=+e.key;if(n>=1&&n<=5)post("/api/aspect",{a:n-1})};
+  window.onState=st=>{
+    if(st.aspect!==lastAspect){lastAspect=st.aspect;show(st.aspect)}
+    const W=innerWidth,H=innerHeight,[x0,y0,x1,y1]=st.rect;ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle="#262626";ctx.lineWidth=1;ctx.beginPath();
+    for(let k=1;k<4;k++){const x=(x0+(x1-x0)*k/4)*W,y=(y0+(y1-y0)*k/4)*H;ctx.moveTo(x,y0*H);ctx.lineTo(x,y1*H);ctx.moveTo(x0*W,y);ctx.lineTo(x1*W,y)}
+    ctx.stroke();
+    ctx.strokeStyle="#666";ctx.setLineDash([8,8]);ctx.lineWidth=2;ctx.strokeRect(x0*W+1,y0*H+1,(x1-x0)*W-2,(y1-y0)*H-2);ctx.setLineDash([]);
+    st.guns.forEach((g,i)=>{
+      if(!g.c)return;
+      // where the joystick output lands, drawn inside the game area
+      const sx=(x0+g.gx*(x1-x0))*W,sy=(y0+g.gy*(y1-y0))*H;
+      crosshair(sx,sy,PCOL[i],30,g.b&1?5:2);
+      ctx.fillStyle=PCOL[i];ctx.font="bold 14px system-ui";
+      ctx.fillText(`P${i+1}${g.cal?"":" (uncalibrated)"}${g.off?" · off-screen":""}`,sx+34,sy-12);
+    });
+  };
+}
+
+// ---------- boot ----------
+buildCards();initForms();loadSettings().catch(()=>{});poll();
+</script>
+</body>
+</html>
