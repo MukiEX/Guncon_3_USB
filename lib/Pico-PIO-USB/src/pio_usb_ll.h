@@ -165,12 +165,7 @@ pio_usb_bus_get_line_state(root_port_t *root) {
   return (dm << 1) | dp;
 }
 
-static __always_inline void pio_usb_bus_start_receive(const pio_port_t *pp) {
-  pp->pio_usb_rx->irq = IRQ_RX_ALL_MASK;
-  while ((pp->pio_usb_rx->irq & IRQ_RX_ALL_MASK) != 0) {
-    continue;
-  }
-}
+void pio_usb_bus_start_receive(const pio_port_t *pp);
 
 //--------------------------------------------------------------------+
 // Low Level functions

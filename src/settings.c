@@ -114,7 +114,7 @@ bool settings_save(void) {
 #define BOOT_MAGIC 0x6C33B007u
 
 int boot_mode_requested(void) {
-  int mode = BOOT_XINPUT;
+  int mode = GC3_DEFAULT_BOOT_WEB ? BOOT_WEB : BOOT_XINPUT;
   if (watchdog_hw->scratch[0] == BOOT_MAGIC) mode = (int) watchdog_hw->scratch[1];
   watchdog_hw->scratch[0] = 0;
   return mode;

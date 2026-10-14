@@ -374,6 +374,17 @@ static bool usbh_edpt_control_open(uint8_t dev_addr, uint8_t max_packet_size);
 static bool usbh_control_xfer_cb (uint8_t daddr, uint8_t ep_addr, xfer_result_t result, uint32_t xferred_bytes);
 static void control_xfer_dispatch_pending(void);
 static void control_xfer_complete(uint8_t daddr, xfer_result_t result);
+static void control_xfer_watchdog(void);
+
+// Control transfers have no timeout, and some HCDs (e.g. Pico-PIO-USB) retry
+// NAKs indefinitely, so a device that keeps NAKing a control request would hold
+// the single control slot forever and stall the whole host: hubs can no longer
+// report port changes and enumeration never finishes. Abort a control transfer
+// that has not completed within this many milliseconds. 0 disables the check.
+#ifndef CFG_TUH_CONTROL_XFER_TIMEOUT_MS
+  #define CFG_TUH_CONTROL_XFER_TIMEOUT_MS 1500
+#endif
+static uint32_t _ctrl_xfer_start_ms;
 
 TU_ATTR_ALWAYS_INLINE static inline usbh_device_t* get_device(uint8_t dev_addr) {
   TU_VERIFY(dev_addr > 0 && dev_addr <= TOTAL_DEVICES, NULL);
@@ -730,6 +741,8 @@ void tuh_task_ext(uint32_t timeout_ms, bool in_isr) {
     }
   #endif
 
+    control_xfer_watchdog();
+
     // Process call_after_ms function if ms is reached
     tusb_defer_func_t after_cb = _usbh_data.call_after.func;
     if (after_cb) {
@@ -933,6 +946,7 @@ bool tuh_control_xfer (tuh_xfer_t* xfer) {
       ctrl_info->daddr        = daddr;
       ctrl_info->actual_len   = 0;
       ctrl_info->failed_count = 0;
+      _ctrl_xfer_start_ms     = tusb_time_millis_api();
 
       ctrl_info->buffer       = xfer->buffer;
       ctrl_info->complete_cb  = xfer->complete_cb;
@@ -1029,6 +1043,7 @@ static void control_xfer_dispatch_pending(void) {
       ctrl_info->daddr        = xfer.daddr;
       ctrl_info->actual_len   = 0;
       ctrl_info->failed_count = 0;
+      _ctrl_xfer_start_ms     = tusb_time_millis_api();
       ctrl_info->buffer       = xfer.buffer;
       ctrl_info->complete_cb  = xfer.complete_cb;
       ctrl_info->user_data    = xfer.user_data;
@@ -1056,6 +1071,35 @@ static void control_xfer_dispatch_pending(void) {
     // complete callback as FAILED and continue with next pending xfer
     control_xfer_complete(xfer.daddr, XFER_RESULT_FAILED);
   }
+}
+
+static void control_xfer_watchdog(void) {
+#if CFG_TUH_CONTROL_XFER_TIMEOUT_MS > 0
+  usbh_ctrl_xfer_info_t* ctrl_info = &_usbh_data.ctrl_xfer_info;
+  if (ctrl_info->stage == CONTROL_STAGE_IDLE) {
+    return;
+  }
+
+  const uint32_t elapsed = tusb_time_millis_api() - _ctrl_xfer_start_ms;
+  if (elapsed < CFG_TUH_CONTROL_XFER_TIMEOUT_MS) {
+    return;
+  }
+
+  const uint8_t daddr = ctrl_info->daddr;
+  const uint8_t rhport = usbh_get_rhport(daddr);
+
+  // Cancel in the HCD first. If nothing was active there, a completion may
+  // still be queued; allow one more window before forcing the slot free.
+  bool aborted = hcd_edpt_abort_xfer(rhport, daddr, 0x00);
+  aborted = hcd_edpt_abort_xfer(rhport, daddr, 0x80) || aborted;
+  if (!aborted && elapsed < 2u * CFG_TUH_CONTROL_XFER_TIMEOUT_MS) {
+    return;
+  }
+
+  TU_LOG_USBH("[%u:%u] Control transfer timed out\r\n", rhport, daddr);
+  // Reported as FAILED: callers (enumeration, hub) only treat FAILED as an error
+  control_xfer_complete(daddr, XFER_RESULT_FAILED);
+#endif
 }
 
 static void control_xfer_complete(uint8_t daddr, xfer_result_t result) {

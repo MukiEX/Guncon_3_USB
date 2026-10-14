@@ -4,7 +4,12 @@
 #include "pico.h"
 
 #define FW_NAME     "GC3-XInput"
-#define FW_VERSION  "0.1.5"
+#define FW_VERSION  "0.1.6"
+
+// Mode at power-on: 0 = XInput controllers, 1 = web configurator (the "-config" build)
+#ifndef GC3_DEFAULT_BOOT_WEB
+  #define GC3_DEFAULT_BOOT_WEB 0
+#endif
 
 // Up to this many GunCon 3s (and XInput pads). 4 = XInput maximum.
 #define MAX_GUNS 4

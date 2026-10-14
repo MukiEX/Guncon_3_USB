@@ -3,6 +3,22 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.6 — Apply GP2040-CE hub hot-plug fixes; live status; two builds
+
+**Reported / requested**
+
+Unplugged guns never disappeared and replugged ones never came back; the
+page needed real-time status; user asked for only two builds
+(normal + boots-to-configurator).
+
+**Changes**
+
+- patches/pico-pio-usb-hub-hotplug.patch: GP2040-CE's fix-rx-enable for
+  Pico-PIO-USB (RX SM enabled after TX), pinned to 5a37a66
+- patches/tinyusb-0.21-ctrl-timeout.patch: control-transfer timeout (GP2040-CE)
+- Live polling of gun state on the page, staleness ("NO DATA") markers
+- build.sh produces gc3-xinput-rp2350-usb-a.uf2 and -config.uf2 only
+
 ## 0.1.5 — Filter per-transfer TinyUSB log spam
 
 **Reported / requested**

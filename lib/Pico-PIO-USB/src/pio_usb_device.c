@@ -295,6 +295,8 @@ usb_device_t *pio_usb_device_init(const pio_usb_configuration_t *c,
   descriptor_buffers = *buffers;
 
   pio_usb_bus_prepare_receive(pp);
+  // Device must listen immediately; prepare_receive() no longer enables the SM.
+  pio_sm_set_enabled(pp->pio_usb_rx, pp->sm_rx, true);
 
   // configure PIOx_IRQ_0 to detect packet receive start
   pio_set_irqn_source_enabled(pp->pio_usb_rx, 0, pis_interrupt0 + IRQ_RX_START,

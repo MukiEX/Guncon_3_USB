@@ -139,10 +139,11 @@ static void api_state(conn_t *c) {
     const pad_out_t *o = mapper_pad(i);
     APPEND("%s{\"c\":%d,\"port\":%d,\"x\":%d,\"y\":%d,\"z\":%d,\"b\":%u,\"ax\":%u,\"ay\":%u,\"bx\":%u,\"by\":%u,"
            "\"ind\":%u,\"n\":%lu,\"bad\":%lu,\"shot\":%lu,\"sx\":%d,\"sy\":%d,\"cal\":%d,"
-           "\"u\":%.4f,\"v\":%.4f,\"gx\":%.4f,\"gy\":%.4f,\"off\":%d,\"lx\":%d,\"ly\":%d,\"xb\":%u}",
+           "\"u\":%.4f,\"v\":%.4f,\"gx\":%.4f,\"gy\":%.4f,\"off\":%d,\"lx\":%d,\"ly\":%d,\"xb\":%u,\"age\":%ld}",
            i ? "," : "", g.connected, g.hub_port, g.x, g.y, g.z, g.buttons, g.ax, g.ay, g.bx, g.by,
            g.ind, (unsigned long) g.reports, (unsigned long) g.bad, (unsigned long) g.shot_seq, g.shot_x, g.shot_y,
-           o->calibrated, o->u, o->v, o->gx, o->gy, o->offscreen, o->rep.lx, o->rep.ly, o->rep.buttons);
+           o->calibrated, o->u, o->v, o->gx, o->gy, o->offscreen, o->rep.lx, o->rep.ly, o->rep.buttons,
+           g.connected ? (long)(to_ms_since_boot(get_absolute_time()) - g.last_ms) : -1L);
   }
   APPEND("],\"usb\":[");
   usb_dev_info_t ud[USB_DIAG_MAX + 4];

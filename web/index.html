@@ -222,14 +222,19 @@ function renderState(){
   if(!ST)return;
   ST.guns.forEach((g,i)=>{
     const c=$("#g"+i);if(!c)return;
-    c.querySelector(".dot").classList.toggle("on",!!g.c);
+    const stale=g.c&&g.age>500;
+    c.querySelector(".dot").classList.toggle("on",!!g.c&&!stale);
+    c.querySelector(".dot").style.background=stale?"var(--warn)":"";
+    const prev=c._n,pt=c._t,nowT=performance.now();c._n=g.n;c._t=nowT;
+    if(prev!==undefined&&nowT>pt){const hz=(g.n-prev)*1000/(nowT-pt);c._hz=c._hz===undefined?hz:c._hz*.7+hz*.3}
     c.querySelector(".port").textContent=g.c?(g.port?`hub port ${g.port}`:"direct"):"not connected";
     const cal=S&&S.calib[i].valid;
     const bd=c.querySelector(".cal");bd.textContent=cal?"calibrated":"uncalibrated";bd.className="badge cal "+(cal?"ok":"no");
     c.querySelector(".raw").textContent=g.c?`${g.x}, ${g.y}  z ${g.z}`:"—";
     c.querySelector(".scr").textContent=g.c&&!g.x&&!g.y&&!g.z?"no IR (aim not visible)":g.c&&g.cal?`${(g.u*100).toFixed(1)}%, ${(g.v*100).toFixed(1)}%${g.off?"  off-screen":""}`:"—";
     c.querySelector(".stk").textContent=g.c?`${g.lx}, ${g.ly}`:"—";
-    c.querySelector(".ir").textContent=g.c?`ind ${g.ind&1?"●":"○"}${g.ind&2?"●":"○"} · ${g.bad} err`:"—";
+    c.querySelector(".ir").textContent=!g.c?"—":stale?`NO DATA for ${(g.age/1000).toFixed(1)} s`:`${Math.round(c._hz||0)} Hz · ind ${g.ind&1?"●":"○"}${g.ind&2?"●":"○"} · ${g.bad} err`;
+    c.querySelector(".ir").style.color=stale?"var(--warn)":"";
     c.querySelectorAll(".chip").forEach(ch=>ch.classList.toggle("on",!!(g.b>>ch.dataset.k&1)));
     const st=(el,x,y)=>{const d=el.querySelector("i");d.style.left=(x/255*100)+"%";d.style.top=(y/255*100)+"%"};
     st(c.querySelector(".sa"),g.c?g.ax:128,g.c?g.ay:128);st(c.querySelector(".sb"),g.c?g.bx:128,g.c?g.by:128);

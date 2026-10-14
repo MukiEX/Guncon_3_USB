@@ -199,7 +199,9 @@ void mapper_update(uint32_t now) {
 
     // --- aim ---
     // All-zero x/y/z = the gun sees no IR (pointing away / sensor not visible): no position at all
-    bool no_aim = (g.x == 0 && g.y == 0 && g.z == 0);
+    bool stalled = (now - g.last_ms) > 500;
+    o->stalled = stalled;
+    bool no_aim = stalled || (g.x == 0 && g.y == 0 && g.z == 0);
     const gun_calib_t *c = &g_settings.calib[i];
     o->calibrated = c->valid;
     float u, v;

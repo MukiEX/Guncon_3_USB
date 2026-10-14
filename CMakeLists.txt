@@ -78,6 +78,9 @@ target_include_directories(gc3_xinput PRIVATE
 
 target_compile_options(gc3_xinput PRIVATE -Wall -Wno-unused-function)
 target_compile_definitions(gc3_xinput PRIVATE PICO_PANIC_FUNCTION=diag_panic)
+if (GC3_DEFAULT_BOOT_WEB)
+  target_compile_definitions(gc3_xinput PRIVATE GC3_DEFAULT_BOOT_WEB=1)
+endif()
 if (GC3_PIO_USB_DP_PIN)
   target_compile_definitions(gc3_xinput PRIVATE GC3_PIO_USB_DP_PIN=${GC3_PIO_USB_DP_PIN})
 endif()

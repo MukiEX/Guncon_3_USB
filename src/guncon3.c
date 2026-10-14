@@ -142,6 +142,7 @@ static void handle_report(int s, const uint8_t *data) {
   st->bx = d[9];  st->by = d[10];
   st->ind = ((d[1] & 0x10) ? 1 : 0) | ((d[1] & 0x08) ? 2 : 0);
   st->reports++;
+  st->last_ms = to_ms_since_boot(get_absolute_time());
   if (shot) { st->shot_seq++; st->shot_x = (int16_t)sx; st->shot_y = (int16_t)sy; }
   spin_unlock(g_lock, l);
 }
@@ -209,6 +210,7 @@ static bool gc3_set_config(uint8_t daddr, uint8_t itf_num) {
     send_key(s);
     uint32_t l = spin_lock_blocking(g_lock);
     g_state[s].connected = true;
+    g_state[s].last_ms = to_ms_since_boot(get_absolute_time());
     spin_unlock(g_lock, l);
   }
   usbh_driver_set_config_complete(daddr, itf_num);
