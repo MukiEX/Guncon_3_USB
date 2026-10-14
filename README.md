@@ -57,6 +57,19 @@ so keep each gun on the same hub port.
 **Fullscreen test** draws every gun's crosshair exactly where its stick output lands, inside
 the current game area.
 
+## Player numbers
+
+Players tab, two modes:
+
+* **In the order guns are plugged in** (default): first gun = player 1, and so on. A gun keeps its
+  number until it's unplugged.
+* **Fixed by hub port**: tie each player number to a port. Ports are identified by their path from the
+  adapter (e.g. "hub port 2", or "hub port 1 → port 3" through nested hubs), so hub addresses changing
+  between plug-ins doesn't matter. Pull a gun's trigger to light up its row and card before choosing.
+
+Every GunCon 3 contains its own 1-port hub (`0C12:8801`); the port path is taken from where that
+built-in hub is plugged in. Calibration belongs to the player number.
+
 ## Aspect / game area
 
 MAME stretches the full joystick range over the *game's* screen area. If a 4:3 game is

@@ -61,6 +61,10 @@ table{border-collapse:collapse}td,th{padding:6px 14px 6px 0;text-align:left}th{c
 #ovl-ui .act{pointer-events:auto;margin-top:18px;display:flex;gap:10px;justify-content:center;cursor:default}
 #overlay.cursor{cursor:default}
 .logbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;max-height:260px;overflow:auto;white-space:pre-wrap;margin:0}
+.card.fire{box-shadow:0 0 0 2px var(--pc),0 0 22px var(--pc)}
+tr.fire td{background:color-mix(in srgb,var(--pc) 22%,transparent)}
+#seatTable td,#mapTable2 td{padding:8px 14px 8px 0;vertical-align:middle}
+.pdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:-1px}
 kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
 @media (max-width:600px){.form{grid-template-columns:1fr}.form .help{grid-column:1;margin-top:-6px}}
 </style>
@@ -72,6 +76,7 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
 </header>
 <nav id="tabs">
   <button data-t="guns" class="on">Guns</button>
+  <button data-t="players">Players</button>
   <button data-t="settings">Settings</button>
   <button data-t="buttons">Buttons</button>
   <button data-t="system">System</button>
@@ -96,6 +101,24 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
     <div class="row"><input type="range" id="calInset" min="4" max="25" value="10"><span id="calInsetV" class="mono"></span></div>
     <div class="help">How far targets sit from the screen edge. Right at the edge the IR sensors can be hard to see.</div>
   </div>
+</section>
+
+<section id="players">
+  <h2>How player numbers are chosen</h2>
+  <div class="form">
+    <label>Assign players</label>
+    <select id="p_mode"><option value="0">In the order guns are plugged in</option><option value="1">Fixed by hub port</option></select>
+    <div class="help" id="p_help"></div>
+  </div>
+  <h2>Connected guns</h2>
+  <p class="note">Pull a gun's trigger to light up its row. Calibration belongs to the player number, so a gun keeps its calibration only while it keeps its seat.</p>
+  <table id="seatTable"></table>
+  <div id="portOnly">
+    <h2>Saved seats</h2>
+    <p class="note">Which port each player number is tied to. Guns on unlisted ports take the first free number.</p>
+    <table id="mapTable2"></table>
+  </div>
+  <div class="row" style="margin-top:20px"><button class="b pri" id="savePlayers">Save players</button><span class="note" id="p_dirty"></span></div>
 </section>
 
 <section id="settings">
@@ -229,7 +252,8 @@ function renderState(){
     const pmv=c._mv;c._mv=g.mv;
     if(prev!==undefined&&nowT>pt){const k=1000/(nowT-pt),hz=(g.n-prev)*k,mz=(g.mv-pmv)*k;
       c._hz=c._hz===undefined?hz:c._hz*.7+hz*.3;c._mz=c._mz===undefined?mz:c._mz*.7+mz*.3}
-    c.querySelector(".port").textContent=g.c?(g.port?`hub port ${g.port}`:"direct"):"not connected";
+    c.querySelector(".port").textContent=g.c?pathText(g.path):"not connected";
+    c.style.setProperty("--pc",PCOL[i]);c.classList.toggle("fire",!!(g.c&&g.b&1));
     const cal=S&&S.calib[i].valid;
     const bd=c.querySelector(".cal");bd.textContent=cal?"calibrated":"uncalibrated";bd.className="badge cal "+(cal?"ok":"no");
     c.querySelector(".raw").textContent=g.c?`${g.x}, ${g.y}  z ${g.z}`:"—";
@@ -243,6 +267,7 @@ function renderState(){
     c.querySelector(".cal-btn").disabled=!g.c;
   });
   const la=$("#liveAspect");if(document.activeElement!==la)la.value=ST.aspect;
+  renderPlayers();
   if(ST.usb){
     const hx=v=>v.toString(16).toUpperCase().padStart(4,"0"),SP=["full","low","high"];
     const kind=d=>d.vid==0x0B9A&&d.pid==0x0800?"GunCon 3":d.vid==0x0C12&&d.pid==0x8801?"GunCon 3 built-in hub":d.isHub?"hub":"";
@@ -278,6 +303,7 @@ async function loadSettings(){
   $("#s_stickA").value=S.stickA;$("#s_stickB").value=S.stickB;
   $("#s_hotkeys").value=S.hotkeys;
   S.map.forEach((v,i)=>$("#m"+i).value=v);
+  PD={mode:S.playerMode,map:S.portMap.slice()};$("#p_mode").value=PD.mode;$("#p_dirty").textContent="";
   $("#about").innerHTML=`<span>Firmware</span><span class="mono">${S.fw}</span><span>Guns supported</span><span>${S.maxGuns}</span><span>Address</span><span class="mono">http://192.168.5.1</span>`;
   renderState();
 }
@@ -468,6 +494,57 @@ async function startTest(){
   };
 }
 
+// ---------- players ----------
+const NONE=65535;let PD=null;
+function pathText(code){
+  if(code===undefined||code===NONE)return "—";
+  if(code===0)return "adapter's USB-A port";
+  const ports=code.toString(16).split("").map(d=>parseInt(d,16));
+  return ports.length===1?`hub port ${ports[0]}`:"hub port "+ports.join(" → port ");
+}
+function playersDirty(){
+  if(!S||!PD)return false;
+  return PD.mode!=S.playerMode||PD.map.some((v,i)=>v!==S.portMap[i]);
+}
+function renderPlayers(){
+  if(!ST||!PD)return;
+  const port=PD.mode==1;
+  $("#p_help").textContent=port?"Each port you save below keeps its player number, whatever order guns are plugged in. Guns on other ports fill the remaining numbers.":
+    "Player 1 is the first gun plugged in, player 2 the second, and so on. A gun keeps its number until it is unplugged.";
+  $("#portOnly").style.display=port?"":"none";
+  const sel=(path)=>{let o=`<select data-path="${path}" class="seatSel"><option value="-1">auto</option>`;
+    for(let k=0;k<4;k++)o+=`<option value="${k}"${PD.map[k]===path?" selected":""}>Player ${k+1}</option>`;return o+"</select>"};
+  const rows=ST.guns.map((g,i)=>({g,i})).filter(r=>r.g.c);
+  const tbl=$("#seatTable");
+  const key=rows.map(r=>r.i+":"+r.g.path).join("|")+"|"+port+"|"+PD.map.join(",");
+  if(tbl._key!==key){
+    tbl._key=key;
+    tbl.innerHTML='<tr><th>Now</th><th>Plugged into</th>'+(port?'<th>Seat for this port</th>':'')+'</tr>'+
+      (rows.length?rows.map(r=>`<tr data-i="${r.i}"><td><span class="pdot" style="background:${PCOL[r.i]}"></span>Player ${r.i+1}</td><td class="mono">${pathText(r.g.path)}</td>${port?`<td>${sel(r.g.path)}</td>`:""}</tr>`).join("")
+       :'<tr><td class="note" colspan="3">No guns connected</td></tr>');
+    tbl.querySelectorAll(".seatSel").forEach(s=>s.onchange=()=>{
+      const path=+s.dataset.path,k=+s.value;
+      PD.map=PD.map.map(v=>v===path?NONE:v);
+      if(k>=0)PD.map[k]=path;
+      $("#p_dirty").textContent=playersDirty()?"unsaved changes":"";renderPlayers();
+    });
+  }
+  tbl.querySelectorAll("tr[data-i]").forEach(tr=>{const i=+tr.dataset.i;tr.style.setProperty("--pc",PCOL[i]);tr.classList.toggle("fire",!!(ST.guns[i].b&1))});
+  const mt=$("#mapTable2");const mkey=PD.map.join(",");
+  if(mt._key!==mkey){
+    mt._key=mkey;
+    mt.innerHTML=PD.map.map((v,k)=>`<tr><td><span class="pdot" style="background:${PCOL[k]}"></span>Player ${k+1}</td><td class="mono">${v===NONE?"not tied to a port":pathText(v)}</td><td>${v===NONE?"":`<button class="b" data-k="${k}">Clear</button>`}</td></tr>`).join("");
+    mt.querySelectorAll("button[data-k]").forEach(b=>b.onclick=()=>{PD.map[+b.dataset.k]=NONE;$("#p_dirty").textContent=playersDirty()?"unsaved changes":"";renderPlayers()});
+  }
+}
+function initPlayers(){
+  $("#p_mode").onchange=e=>{PD.mode=+e.target.value;$("#p_dirty").textContent=playersDirty()?"unsaved changes":"";renderPlayers()};
+  $("#savePlayers").onclick=async()=>{
+    const o={playerMode:PD.mode};PD.map.forEach((v,k)=>o["pm"+k]=v);
+    const r=await post("/api/settings",o);toast(r.ok?"Players saved":"Save failed");loadSettings();
+  };
+}
+
 // ---------- diagnostics ----------
 let DG=null;
 async function loadDiag(){
@@ -487,7 +564,7 @@ function initDiag(){
 }
 
 // ---------- boot ----------
-buildCards();initForms();initDiag();loadSettings().catch(()=>{});poll();
+buildCards();initForms();initDiag();initPlayers();loadSettings().catch(()=>{});poll();
 </script>
 </body>
 </html>

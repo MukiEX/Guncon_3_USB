@@ -16,7 +16,8 @@ enum {
 
 typedef struct {
   bool     connected;
-  uint8_t  hub_port;      // 0 = directly on the root port
+  uint16_t path;          // port path: hub ports from the adapter down to the gun's built-in hub,
+                          // one hex digit per level (0x23 = hub port 2, then port 3); 0 = on the adapter
   uint16_t buttons;       // bitmask of GB_*
   int16_t  x, y;          // raw aim
   int16_t  z;             // raw "Z" (distance-ish, informational)
@@ -41,6 +42,9 @@ typedef struct {
   uint8_t  is_hub;
 } usb_dev_info_t;
 int guncon3_usb_list(usb_dev_info_t *out, int max, uint32_t *events);  // devices + hubs
+
+// Core0: ask core1 to re-seat connected guns after the player mapping changed
+void guncon3_request_reassign(void);
 
 // Core0, before launching core1
 void guncon3_init_shared(void);

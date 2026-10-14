@@ -137,10 +137,10 @@ static void api_state(conn_t *c) {
     gun_raw_t g;
     guncon3_get(i, &g);
     const pad_out_t *o = mapper_pad(i);
-    APPEND("%s{\"c\":%d,\"port\":%d,\"x\":%d,\"y\":%d,\"z\":%d,\"b\":%u,\"ax\":%u,\"ay\":%u,\"bx\":%u,\"by\":%u,"
+    APPEND("%s{\"c\":%d,\"path\":%u,\"x\":%d,\"y\":%d,\"z\":%d,\"b\":%u,\"ax\":%u,\"ay\":%u,\"bx\":%u,\"by\":%u,"
            "\"ind\":%u,\"n\":%lu,\"bad\":%lu,\"shot\":%lu,\"sx\":%d,\"sy\":%d,\"cal\":%d,"
            "\"u\":%.4f,\"v\":%.4f,\"gx\":%.4f,\"gy\":%.4f,\"off\":%d,\"lx\":%d,\"ly\":%d,\"xb\":%u,\"age\":%ld,\"mv\":%lu}",
-           i ? "," : "", g.connected, g.hub_port, g.x, g.y, g.z, g.buttons, g.ax, g.ay, g.bx, g.by,
+           i ? "," : "", g.connected, g.path, g.x, g.y, g.z, g.buttons, g.ax, g.ay, g.bx, g.by,
            g.ind, (unsigned long) g.reports, (unsigned long) g.bad, (unsigned long) g.shot_seq, g.shot_x, g.shot_y,
            o->calibrated, o->u, o->v, o->gx, o->gy, o->offscreen, o->rep.lx, o->rep.ly, o->rep.buttons,
            g.connected ? (long)(to_ms_since_boot(get_absolute_time()) - g.last_ms) : -1L, (unsigned long) g.moves);
@@ -165,6 +165,8 @@ static void api_settings_get(conn_t *c) {
          FW_VERSION, MAX_GUNS, s->pad_count, s->aspect_default, s->aspect_cycle_mask, s->offscreen_mode,
          s->offscreen_margin, s->smoothing, s->stick_a_dest, s->stick_b_dest, s->dpad_deadzone, s->hotkeys,
          s->monitor_aspect, s->custom_rect[0], s->custom_rect[1], s->custom_rect[2], s->custom_rect[3]);
+  APPEND(",\"playerMode\":%d,\"portMap\":[%u,%u,%u,%u]", s->player_mode,
+         s->port_map[0], s->port_map[1], s->port_map[2], s->port_map[3]);
   for (int i = 0; i < GB_COUNT; i++) APPEND("%s%d", i ? "," : "", s->button_map[i]);
   APPEND("],\"calib\":[");
   for (int g = 0; g < MAX_GUNS; g++) {
@@ -205,9 +207,17 @@ static void api_settings_post(conn_t *c, const char *body) {
     snprintf(key, sizeof(key), "map%d", i);
     if (form_int(body, key, &v)) s->button_map[i] = (uint8_t) v;
   }
+  bool players = false;
+  if (form_int(body, "playerMode", &v)) { s->player_mode = (uint8_t) v; players = true; }
+  for (int i = 0; i < MAX_GUNS; i++) {
+    snprintf(key, sizeof(key), "pm%d", i);
+    if (form_int(body, key, &v)) { s->port_map[i] = (uint16_t) v; players = true; }
+  }
   settings_sanitize(s);
   mapper_set_aspect(s->aspect_default);
-  api_ok(c, settings_save());
+  bool ok = settings_save();
+  if (players) guncon3_request_reassign();
+  api_ok(c, ok);
 }
 
 static void api_calib_post(conn_t *c, const char *body) {

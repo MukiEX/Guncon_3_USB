@@ -3,6 +3,20 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.9 — Players tab: plug-order or fixed-by-port numbering; settings v2
+
+**Reported / requested**
+
+Port-based numbering misbehaved with both of the user's hubs. User asked
+for plug-order mode plus a port mode with a tab to assign ports, with
+trigger-pull highlighting.
+
+**Changes**
+
+- Player mode: plug order (default) or fixed by port path
+- Players tab with port paths, seat selectors, trigger-pull highlight
+- settings v2 (player_mode, port_map) with v1 migration
+
 ## 0.1.8 — Root-port liveness probe; GunCon built-in hub awareness; aim rate
 
 **Reported / requested**

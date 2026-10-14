@@ -10,9 +10,9 @@ const ap = (T,p) => { const w=T[2][0]*p[0]+T[2][1]*p[1]+T[2][2]; return [(T[0][0
 const TRUE = [0,1].map(k => [[1/26000, 3e-7, .5 + k*.02],[2e-7, -1/19000, .48],[1.5e-6*(k?1:-1), 8e-7, 1]]);
 const S = { fw:'0.1.0-mock', maxGuns:4, pads:4, aspectDefault:0, aspectCycle:3, offscreen:0, margin:8, smoothing:2, stickA:1, stickB:2,
   deadzone:40, hotkeys:1, monitorAspect:16/9, custom:[.125,0,.875,1], map:[1,2,3,4,5,10,9,12,13],
-  calib:[0,1,2,3].map(()=>({valid:0,points:0,h:[0,0,0,0,0,0,0,0]})) };
+  calib:[0,1,2,3].map(()=>({valid:0,points:0,h:[0,0,0,0,0,0,0,0]})), playerMode:1, portMap:[2,65535,65535,65535] };
 let aspect = 0;
-const guns = [0,1,2,3].map(i => ({ c: i < 2 ? 1 : 0, port: i+1, x:0, y:0, z:300, b:0, ax:128, ay:128, bx:128, by:128, ind:3, n:0, bad:0, shot:0, sx:0, sy:0 }));
+const guns = [0,1,2,3].map(i => ({ c: i < 2 ? 1 : 0, path: i===0?0x2:0x3, x:0, y:0, z:300, b:0, ax:128, ay:128, bx:128, by:128, ind:3, n:0, bad:0, shot:0, sx:0, sy:0 }));
 function setAim(i,u,v){ const r = ap(inv(TRUE[i]), [u,v]); guns[i].x = Math.round(r[0]); guns[i].y = Math.round(r[1]); }
 setAim(0,.3,.4); setAim(1,.7,.6);
 function rect(a){ const m=S.monitorAspect, ar=[0,4/3,3/4,5/4,0][a]; if(a===4) return S.custom; if(!ar) return [0,0,1,1];
@@ -34,7 +34,7 @@ http.createServer(async (req,res) => {
   if (url === '/api/diag') return json(res,{boots:3,lastReset:'USB host core stopped responding',faultCore:0,faultPC:'0x00000000',faultLR:'0x00000000',panic:'',
     prevLog:'812 boot #2, last reset: power-on\n[7:1] Port 1 status change\nHUB Get Port Status: addr = 7 port = 1\n41230 core1 heartbeat stopped for 2 s, rebooting\n',log:'95 boot #3, last reset: USB host core stopped responding\n'});
   const p = await body(req);
-  if (url === '/api/settings') { for (const [k,v] of p) { if (k.startsWith('map')) S.map[+k.slice(3)]=+v; else if (k.startsWith('custom')) S.custom[+k.slice(6)]=+v; else S[k]=+v; } return json(res,{ok:true}); }
+  if (url === '/api/settings') { for (const [k,v] of p) { if (k.startsWith('map')) S.map[+k.slice(3)]=+v; else if (k.startsWith('custom')) S.custom[+k.slice(6)]=+v; else if (/^pm\d$/.test(k)) S.portMap[+k.slice(2)]=+v; else S[k]=+v; } return json(res,{ok:true}); }
   if (url === '/api/calib') { const g=+p.get('gun'); S.calib[g]={valid:1,points:+p.get('points'),h:[0,1,2,3,4,5,6,7].map(k=>+p.get('h'+k))}; S.monitorAspect=+p.get('monitorAspect'); return json(res,{ok:true}); }
   if (url === '/api/calib/clear') { S.calib[+p.get('gun')].valid=0; return json(res,{ok:true}); }
   if (url === '/api/aspect') { aspect=+p.get('a'); return json(res,{ok:true}); }

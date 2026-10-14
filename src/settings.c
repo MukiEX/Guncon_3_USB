@@ -10,7 +10,8 @@
 #include "diag.h"
 
 #define SETTINGS_MAGIC   0x47433358u   // 'GC3X'
-#define SETTINGS_VERSION 1
+#define SETTINGS_VERSION 2
+#define SETTINGS_V1_SIZE (offsetof(settings_t, player_mode) + 4)   // v1 ended with calib[] + crc
 #define SETTINGS_OFFSET  (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
 
 settings_t g_settings;
@@ -53,6 +54,8 @@ void settings_defaults(settings_t *s) {
   s->monitor_aspect = 16.0f / 9.0f;
   s->custom_rect[0] = 0.125f; s->custom_rect[1] = 0.0f;
   s->custom_rect[2] = 0.875f; s->custom_rect[3] = 1.0f;
+  s->player_mode = PLAYERS_BY_ORDER;
+  for (int i = 0; i < MAX_GUNS; i++) s->port_map[i] = PORT_PATH_NONE;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -69,6 +72,7 @@ void settings_sanitize(settings_t *s) {
   if (s->stick_b_dest >= DEST_COUNT) s->stick_b_dest = DEST_NONE;
   if (s->dpad_deadzone > 127) s->dpad_deadzone = 127;
   for (int i = 0; i < GB_COUNT; i++) if (s->button_map[i] >= XI_COUNT) s->button_map[i] = XI_NONE;
+  if (s->player_mode >= PLAYERS_COUNT) s->player_mode = PLAYERS_BY_ORDER;
   if (!(s->monitor_aspect > 0.2f && s->monitor_aspect < 5.0f)) s->monitor_aspect = 16.0f / 9.0f;
   for (int i = 0; i < 4; i++) s->custom_rect[i] = clampf(s->custom_rect[i], 0.0f, 1.0f);
   if (s->custom_rect[2] - s->custom_rect[0] < 0.05f || s->custom_rect[3] - s->custom_rect[1] < 0.05f) {
@@ -87,6 +91,15 @@ void settings_load(void) {
   if (f->magic == SETTINGS_MAGIC && f->version == SETTINGS_VERSION && f->size == sizeof(settings_t) &&
       f->crc == crc32(f, offsetof(settings_t, crc))) {
     memcpy(&g_settings, f, sizeof(g_settings));
+  } else if (f->magic == SETTINGS_MAGIC && f->version == 1 && f->size == SETTINGS_V1_SIZE &&
+             *(const uint32_t *)((const uint8_t *) f + SETTINGS_V1_SIZE - 4) == crc32(f, SETTINGS_V1_SIZE - 4)) {
+    // v1 -> v2: keep everything (calibrations included), add the player-assignment fields
+    settings_defaults(&g_settings);
+    memcpy(&g_settings, f, SETTINGS_V1_SIZE - 4);
+    g_settings.version = SETTINGS_VERSION;
+    g_settings.size = sizeof(settings_t);
+    g_settings.player_mode = PLAYERS_BY_ORDER;
+    for (int i = 0; i < MAX_GUNS; i++) g_settings.port_map[i] = PORT_PATH_NONE;
   } else {
     settings_defaults(&g_settings);
   }

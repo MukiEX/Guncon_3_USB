@@ -5,9 +5,8 @@
 // after which every 15-byte IN report is obfuscated with that key. Decoder
 // ported from beardypig/guncon3 (Linux) and gameotaku79/Guncon3Windows.
 //
-// Runs on core1 together with the PIO-USB host stack. Up to MAX_GUNS guns,
-// through a hub. A gun on hub port N prefers slot N-1 so player numbers stay
-// tied to physical hub ports.
+// Runs on core1 together with the PIO-USB host stack. Up to MAX_GUNS guns, through hubs.
+// Player numbers: either in plug-in order, or fixed per port path via the saved port map.
 
 #include <string.h>
 #include "pico/stdlib.h"
@@ -22,6 +21,7 @@
 
 #include "guncon3.h"
 #include "diag.h"
+#include "settings.h"
 
 #define GC3_VID 0x0B9A
 #define GC3_PID 0x0800
@@ -44,6 +44,8 @@ void guncon3_get(int slot, gun_raw_t *out) {
 #define HIST 8
 typedef struct {
   uint8_t daddr;          // 0 = free
+  uint8_t slot;           // player index this gun currently drives
+  uint16_t path;
   uint8_t itf_num;
   uint8_t ep_in, ep_out;
   uint16_t mps_in;
@@ -60,12 +62,49 @@ CFG_TUH_MEM_SECTION static struct {
   TUH_EPBUF_DEF(out, 8);
 } g_buf[MAX_GUNS];
 
-static int slot_of(uint8_t daddr) {
+// g_dev[] index = device record (owns the transfer buffers, never moves).
+// g_dev[i].slot = player number it feeds (g_state[] index), can be re-seated.
+static int dev_of(uint8_t daddr) {
   for (int i = 0; i < MAX_GUNS; i++) if (g_dev[i].daddr == daddr) return i;
   return -1;
 }
 
-static bool queue_in(int s) {
+static bool slot_taken(int slot, int except_dev) {
+  for (int i = 0; i < MAX_GUNS; i++) if (i != except_dev && g_dev[i].daddr && g_dev[i].slot == slot) return true;
+  return false;
+}
+
+// Port path of a gun: walk up from its built-in hub (or the gun itself) to the adapter
+static uint16_t path_of(uint8_t daddr) {
+  tuh_bus_info_t bi;
+  uint8_t cur = daddr;
+  if (tuh_bus_info_get(cur, &bi) && bi.hub_addr) {
+    uint16_t v, p;
+    if (tuh_vid_pid_get(bi.hub_addr, &v, &p) && v == 0x0C12 && p == 0x8801) cur = bi.hub_addr;
+  }
+  uint8_t ports[4]; int n = 0;
+  while (n < 4 && tuh_bus_info_get(cur, &bi) && bi.hub_addr) {
+    ports[n++] = bi.hub_port & 0x0F;
+    cur = bi.hub_addr;
+  }
+  uint16_t code = 0;
+  for (int i = n - 1; i >= 0; i--) code = (uint16_t)((code << 4) | ports[i]);
+  return code;
+}
+
+static int pick_slot(uint16_t path, int except_dev) {
+  if (g_settings.player_mode == PLAYERS_BY_PORT) {
+    for (int i = 0; i < MAX_GUNS; i++)
+      if (g_settings.port_map[i] == path && !slot_taken(i, except_dev)) return i;
+    // Unmapped port: prefer a player number no port is reserved for
+    for (int i = 0; i < MAX_GUNS; i++)
+      if (g_settings.port_map[i] == PORT_PATH_NONE && !slot_taken(i, except_dev)) return i;
+  }
+  for (int i = 0; i < MAX_GUNS; i++) if (!slot_taken(i, except_dev)) return i;
+  return -1;
+}
+
+static bool queue_in(int s) {   // s = device record
   gun_dev_t *g = &g_dev[s];
   if (!usbh_edpt_claim(g->daddr, g->ep_in)) return false;
   if (!usbh_edpt_xfer(g->daddr, g->ep_in, g_buf[s].in, g->mps_in)) {
@@ -86,12 +125,12 @@ static bool send_key(int s) {
   return true;
 }
 
-static void handle_report(int s, const uint8_t *data) {
+static void handle_report(int s, const uint8_t *data) {   // s = device record
   gun_dev_t *g = &g_dev[s];
   uint8_t d[13];
   if (!guncon3_decode(data, guncon3_key, d)) {
     uint32_t l = spin_lock_blocking(g_lock);
-    g_state[s].bad++;
+    g_state[g->slot].bad++;
     spin_unlock(g_lock, l);
     // Gun may have power-cycled behind a hub or lost its key; re-send it
     if (++g->bad_run >= 16) { g->bad_run = 0; send_key(s); }
@@ -137,7 +176,7 @@ static void handle_report(int s, const uint8_t *data) {
   if (g->hcount < HIST) g->hcount++;
 
   uint32_t l = spin_lock_blocking(g_lock);
-  gun_raw_t *st = &g_state[s];
+  gun_raw_t *st = &g_state[g->slot];
   if (x != st->x || y != st->y) st->moves++;
   st->buttons = b;
   st->x = x; st->y = y; st->z = z;
@@ -162,24 +201,12 @@ static uint16_t gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t co
   if (!tuh_vid_pid_get(daddr, &vid, &pid) || vid != GC3_VID || pid != GC3_PID) return 0;
   if (itf->bNumEndpoints < 2) return 0;
 
-  tuh_bus_info_t tree;
-  tuh_bus_info_get(daddr, &tree);
-  // Every GunCon 3 has its own 1-port hub (0C12:8801) in front of it. The port that
-  // identifies the player is the one that internal hub is plugged into.
-  uint8_t player_port = tree.hub_port;
-  if (tree.hub_addr) {
-    uint16_t hv, hp;
-    tuh_bus_info_t up;
-    if (tuh_vid_pid_get(tree.hub_addr, &hv, &hp) && hv == 0x0C12 && hp == 0x8801 &&
-        tuh_bus_info_get(tree.hub_addr, &up))
-      player_port = up.hub_port;    // 0 if the gun sits directly on the adapter
-  }
-
-  // Pick a slot: hub port N -> slot N-1 if free, else the first free slot
-  int s = -1;
-  if (player_port >= 1 && player_port <= MAX_GUNS && g_dev[player_port - 1].daddr == 0) s = player_port - 1;
-  for (int i = 0; s < 0 && i < MAX_GUNS; i++) if (g_dev[i].daddr == 0) s = i;
+  uint16_t path = path_of(daddr);
+  int s = -1;   // free device record
+  for (int i = 0; i < MAX_GUNS; i++) if (g_dev[i].daddr == 0) { s = i; break; }
   if (s < 0) return 0;
+  int slot = pick_slot(path, -1);
+  if (slot < 0) return 0;
 
   gun_dev_t *g = &g_dev[s];
   memset(g, 0, sizeof(*g));
@@ -209,21 +236,24 @@ static uint16_t gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t co
 
   g->daddr = daddr;
   g->itf_num = itf->bInterfaceNumber;
+  g->slot = (uint8_t) slot;
+  g->path = path;
 
   uint32_t l = spin_lock_blocking(g_lock);
-  memset(&g_state[s], 0, sizeof(g_state[s]));
-  g_state[s].hub_port = player_port;
+  memset(&g_state[slot], 0, sizeof(g_state[slot]));
+  g_state[slot].path = path;
   spin_unlock(g_lock, l);
+  diag_log("GunCon on port path %x -> player %d\n", path, slot + 1);
   return (uint16_t)(p - (uint8_t const *) itf);
 }
 
 static bool gc3_set_config(uint8_t daddr, uint8_t itf_num) {
-  int s = slot_of(daddr);
+  int s = dev_of(daddr);
   if (s >= 0) {
     send_key(s);
     uint32_t l = spin_lock_blocking(g_lock);
-    g_state[s].connected = true;
-    g_state[s].last_ms = to_ms_since_boot(get_absolute_time());
+    g_state[g_dev[s].slot].connected = true;
+    g_state[g_dev[s].slot].last_ms = to_ms_since_boot(get_absolute_time());
     spin_unlock(g_lock, l);
   }
   usbh_driver_set_config_complete(daddr, itf_num);
@@ -231,7 +261,7 @@ static bool gc3_set_config(uint8_t daddr, uint8_t itf_num) {
 }
 
 static bool gc3_xfer_cb(uint8_t daddr, uint8_t ep_addr, xfer_result_t result, uint32_t len) {
-  int s = slot_of(daddr);
+  int s = dev_of(daddr);
   if (s < 0) return false;
   gun_dev_t *g = &g_dev[s];
 
@@ -248,12 +278,50 @@ static bool gc3_xfer_cb(uint8_t daddr, uint8_t ep_addr, xfer_result_t result, ui
 }
 
 static void gc3_close(uint8_t daddr) {
-  int s = slot_of(daddr);
+  int s = dev_of(daddr);
   if (s < 0) return;
+  uint8_t slot = g_dev[s].slot;
   memset(&g_dev[s], 0, sizeof(g_dev[s]));
   uint32_t l = spin_lock_blocking(g_lock);
-  memset(&g_state[s], 0, sizeof(g_state[s]));
+  memset(&g_state[slot], 0, sizeof(g_state[slot]));
   spin_unlock(g_lock, l);
+}
+
+// Re-seat connected guns after the player mapping changed (runs on core1)
+static volatile bool s_reassign;
+void guncon3_request_reassign(void) { s_reassign = true; }
+
+static void do_reassign(void) {
+  if (!s_reassign) return;
+  s_reassign = false;
+  if (g_settings.player_mode != PLAYERS_BY_PORT) return;   // plug order: keep current seats
+  int8_t want[MAX_GUNS];
+  bool used[MAX_GUNS] = {0};
+  // 1) guns whose port is mapped get that player number
+  for (int d = 0; d < MAX_GUNS; d++) {
+    want[d] = -1;
+    if (!g_dev[d].daddr) continue;
+    for (int i = 0; i < MAX_GUNS; i++)
+      if (g_settings.port_map[i] == g_dev[d].path && !used[i]) { want[d] = (int8_t) i; used[i] = true; break; }
+  }
+  // 2) the rest keep their seat if still free, else take the first free one
+  for (int d = 0; d < MAX_GUNS; d++) {
+    if (!g_dev[d].daddr || want[d] >= 0) continue;
+    int cur = g_dev[d].slot;
+    if (!used[cur]) { want[d] = (int8_t) cur; used[cur] = true; continue; }
+    for (int i = 0; i < MAX_GUNS; i++) if (!used[i]) { want[d] = (int8_t) i; used[i] = true; break; }
+  }
+  gun_raw_t old[MAX_GUNS];
+  uint32_t l = spin_lock_blocking(g_lock);
+  memcpy(old, g_state, sizeof(old));
+  memset(g_state, 0, sizeof(g_state));
+  for (int d = 0; d < MAX_GUNS; d++) {
+    if (!g_dev[d].daddr || want[d] < 0) continue;
+    g_state[want[d]] = old[g_dev[d].slot];
+    g_dev[d].slot = (uint8_t) want[d];
+  }
+  spin_unlock(g_lock, l);
+  diag_log("players re-seated from the port map\n");
 }
 
 static usbh_class_driver_t const gc3_driver = {
@@ -422,6 +490,7 @@ void guncon3_host_core1_entry(void) {
     diag_core1_heartbeat();
     tuh_task_ext(10, false);   // return at least every 10 ms so the heartbeat keeps moving
     root_port_watchdog(&idle_since, &next_retry_gap);
+    do_reassign();
   }
 }
 

@@ -7,6 +7,8 @@
 enum { ASPECT_FULL = 0, ASPECT_4_3, ASPECT_3_4, ASPECT_5_4, ASPECT_CUSTOM, ASPECT_COUNT };
 enum { OFF_CLAMP = 0, OFF_HOLD, OFF_CORNER, OFF_COUNT };
 enum { DEST_NONE = 0, DEST_RSTICK, DEST_DPAD, DEST_COUNT };
+enum { PLAYERS_BY_ORDER = 0, PLAYERS_BY_PORT, PLAYERS_COUNT };
+#define PORT_PATH_NONE 0xFFFF   // port_map entry: no port assigned
 
 // XInput targets for the button map
 enum {
@@ -45,6 +47,11 @@ typedef struct {
   float    custom_rect[4];       // x0, y0, x1, y1 (normalized) for ASPECT_CUSTOM
 
   gun_calib_t calib[MAX_GUNS];
+
+  // v2
+  uint8_t  player_mode;          // PLAYERS_*
+  uint8_t  _pad2;
+  uint16_t port_map[MAX_GUNS];   // player i <- gun on this port path (see guncon3.h)
 
   uint32_t crc;
 } settings_t;
