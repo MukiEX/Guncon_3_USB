@@ -3,6 +3,17 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.7 — Root-port enumeration retry
+
+**Reported / requested**
+
+Hub plugged in after power-up sometimes never enumerated.
+
+**Changes**
+
+- If the root port shows a device but nothing enumerated, fake a
+  detach/attach after 2, 4 and 8 s
+
 ## 0.1.6 — Apply GP2040-CE hub hot-plug fixes; live status; two builds
 
 **Reported / requested**

@@ -4,7 +4,7 @@
 #include "pico.h"
 
 #define FW_NAME     "GC3-XInput"
-#define FW_VERSION  "0.1.6"
+#define FW_VERSION  "0.1.7"
 
 // Mode at power-on: 0 = XInput controllers, 1 = web configurator (the "-config" build)
 #ifndef GC3_DEFAULT_BOOT_WEB

@@ -16,6 +16,7 @@
 #include "pico/sync.h"
 #include "tusb.h"
 #include "host/usbh_pvt.h"
+#include "host/hcd.h"
 #include "pio_usb.h"
 
 #include "guncon3.h"
@@ -303,6 +304,30 @@ int guncon3_usb_list(usb_dev_info_t *out, int max, uint32_t *events) {
   return n;
 }
 
+// TinyUSB never retries a failed enumeration on the root port by itself: it waits for
+// a physical disconnect. Some hubs miss the first attempt right after power-up, so if
+// something is attached but nothing has enumerated for a while, fake an unplug/replug.
+static bool anything_mounted(void) {
+  for (uint8_t a = 1; a <= CFG_TUH_DEVICE_MAX + CFG_TUH_HUB; a++) if (tuh_mounted(a)) return true;
+  return false;
+}
+
+static void root_port_watchdog(uint32_t *idle_since, uint32_t *gap) {
+  uint32_t now = to_ms_since_boot(get_absolute_time());
+  if (!hcd_port_connect_status(1) || anything_mounted()) {
+    *idle_since = 0;
+    *gap = 2000;
+    return;
+  }
+  if (!*idle_since) { *idle_since = now; return; }
+  if (now - *idle_since < *gap) return;
+  diag_log("root port: device attached but not enumerated for %lu ms, retrying\n", (unsigned long) *gap);
+  hcd_event_device_remove(1, false);
+  hcd_event_device_attach(1, false);
+  *idle_since = now;
+  if (*gap < 8000) *gap *= 2;   // 2 s, 4 s, 8 s, 8 s ...
+}
+
 //--------------------------------------------------------------------+
 // Core1 entry
 //--------------------------------------------------------------------+
@@ -321,9 +346,11 @@ void guncon3_host_core1_entry(void) {
   tusb_rhport_init_t host_init = { .role = TUSB_ROLE_HOST, .speed = TUSB_SPEED_AUTO };
   tusb_init(1, &host_init);
 
+  uint32_t idle_since = 0, next_retry_gap = 2000;
   while (true) {
     diag_core1_heartbeat();
     tuh_task_ext(10, false);   // return at least every 10 ms so the heartbeat keeps moving
+    root_port_watchdog(&idle_since, &next_retry_gap);
   }
 }
 
