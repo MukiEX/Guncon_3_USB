@@ -198,35 +198,38 @@ void mapper_update(uint32_t now) {
     }
 
     // --- aim ---
+    // All-zero x/y/z = the gun sees no IR (pointing away / sensor not visible): no position at all
+    bool no_aim = (g.x == 0 && g.y == 0 && g.z == 0);
     const gun_calib_t *c = &g_settings.calib[i];
     o->calibrated = c->valid;
     float u, v;
-    if (c->valid && mapper_apply_h(c->h, g.x, g.y, &u, &v)) {
-      // ok
+    if (!no_aim) {
+      if (!(c->valid && mapper_apply_h(c->h, g.x, g.y, &u, &v))) {
+        // Uncalibrated: pass raw straight through (useful only for checking the gun works)
+        u = (g.x + 32768.0f) / 65535.0f;
+        v = (g.y + 32768.0f) / 65535.0f;
+      }
+      if (g.reports != p->last_reports) {     // only filter on fresh reports
+        p->last_reports = g.reports;
+        if (!p->have_pos) { p->su = u; p->sv = v; p->have_pos = true; }
+        else { p->su += alpha * (u - p->su); p->sv += alpha * (v - p->sv); }
+      }
     } else {
-      // Uncalibrated: pass raw straight through (useful only for checking the gun works)
-      u = (g.x + 32768.0f) / 65535.0f;
-      v = (g.y + 32768.0f) / 65535.0f;
-    }
-
-    if (g.reports != p->last_reports) {     // only filter on fresh reports
-      p->last_reports = g.reports;
-      if (!p->have_pos) { p->su = u; p->sv = v; p->have_pos = true; }
-      else { p->su += alpha * (u - p->su); p->sv += alpha * (v - p->sv); }
+      p->have_pos = false;                    // restart the filter when aim comes back
     }
     u = p->su; v = p->sv;
     o->u = u; o->v = v;
 
     float gx = rw > 0 ? (u - rect[0]) / rw : u;
     float gy = rh > 0 ? (v - rect[1]) / rh : v;
-    bool off = gx < -margin || gx > 1.0f + margin || gy < -margin || gy > 1.0f + margin;
+    bool off = no_aim || gx < -margin || gx > 1.0f + margin || gy < -margin || gy > 1.0f + margin;
     o->offscreen = off;
 
     int16_t lx, ly;
-    if (off && g_settings.offscreen_mode == OFF_HOLD && p->has_last) {
-      lx = p->last_lx; ly = p->last_ly;
-    } else if (off && g_settings.offscreen_mode == OFF_CORNER) {
+    if (off && g_settings.offscreen_mode == OFF_CORNER) {
       lx = -32768; ly = 32767;            // top-left corner
+    } else if (off && (g_settings.offscreen_mode == OFF_HOLD || no_aim) && p->has_last) {
+      lx = p->last_lx; ly = p->last_ly;   // hold (no-aim always holds, there's nothing to clamp)
     } else {
       float cx = gx < 0 ? 0 : (gx > 1 ? 1 : gx);
       float cy = gy < 0 ? 0 : (gy > 1 ? 1 : gy);

@@ -3,6 +3,17 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.3 — More hubs/devices; treat all-zero reports as no IR
+
+**Reported / requested**
+
+User's dock contains several chained hubs; only one of two guns found.
+
+**Changes**
+
+- Raise CFG_TUH_HUB / CFG_TUH_DEVICE_MAX
+- All-zero x/y/z reports (no IR seen) are treated as off-screen
+
 ## 0.1.2 — Switch to TinyUSB 0.21 for hub support; USB device list; LED colour fix
 
 **Reported / requested**

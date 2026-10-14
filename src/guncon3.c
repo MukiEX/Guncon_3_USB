@@ -281,12 +281,22 @@ void tuh_umount_cb(uint8_t daddr) {
   spin_unlock(g_lock, l);
 }
 
-int guncon3_usb_list(usb_dev_info_t *out, uint32_t *events) {
+int guncon3_usb_list(usb_dev_info_t *out, int max, uint32_t *events) {
   int n = 0;
   uint32_t l = spin_lock_blocking(g_lock);
-  for (int i = 0; i < USB_DIAG_MAX; i++) if (g_usb[i].addr) out[n++] = g_usb[i];
+  for (int i = 0; i < USB_DIAG_MAX && n < max; i++) if (g_usb[i].addr) out[n++] = g_usb[i];
   if (events) *events = g_usb_events;
   spin_unlock(g_lock, l);
+  // Hubs don't get tuh_mount_cb; their addresses start after CFG_TUH_DEVICE_MAX
+  for (uint8_t a = CFG_TUH_DEVICE_MAX + 1; a <= CFG_TUH_DEVICE_MAX + CFG_TUH_HUB && n < max; a++) {
+    usb_dev_info_t d = {0};
+    if (!tuh_vid_pid_get(a, &d.vid, &d.pid)) continue;
+    tuh_bus_info_t bi;
+    if (tuh_bus_info_get(a, &bi)) { d.hub_addr = bi.hub_addr; d.hub_port = bi.hub_port; d.speed = bi.speed; }
+    d.addr = a;
+    d.is_hub = 1;
+    out[n++] = d;
+  }
   return n;
 }
 

@@ -4,7 +4,7 @@
 #include "pico.h"
 
 #define FW_NAME     "GC3-XInput"
-#define FW_VERSION  "0.1.2"
+#define FW_VERSION  "0.1.3"
 
 // Up to this many GunCon 3s (and XInput pads). 4 = XInput maximum.
 #define MAX_GUNS 4

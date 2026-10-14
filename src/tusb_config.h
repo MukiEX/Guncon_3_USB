@@ -31,9 +31,9 @@
 #define BOARD_TUH_RHPORT      1
 #define CFG_TUH_MAX_SPEED     OPT_MODE_FULL_SPEED
 
-#define CFG_TUH_ENUMERATION_BUFSIZE 256
-#define CFG_TUH_HUB           2          // allow one hub (+1 nested)
-#define CFG_TUH_DEVICE_MAX    (4 + CFG_TUH_HUB)
+#define CFG_TUH_ENUMERATION_BUFSIZE 512
+#define CFG_TUH_HUB           4          // docks often contain 2-3 chained hubs internally
+#define CFG_TUH_DEVICE_MAX    10         // non-hub devices: 4 guns + whatever else lives in a dock
 #define CFG_TUH_ENDPOINT_MAX  8
 #define CFG_TUH_HID           0
 #define CFG_TUH_CDC           0
