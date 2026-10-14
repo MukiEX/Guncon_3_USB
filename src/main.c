@@ -23,6 +23,7 @@
 #include "status_led.h"
 #include "net.h"
 #include "http.h"
+#include "diag.h"
 
 //--------------------------------------------------------------------+
 // BOOTSEL button (read through the QSPI CS line; flash is unusable meanwhile,
@@ -50,7 +51,10 @@ static void __no_inline_not_in_flash_func(read_bootsel)(void *param) {
 
 static bool bootsel_pressed(void) {
   bool pressed = false;
-  if (flash_safe_execute(read_bootsel, &pressed, 20) != PICO_OK) return false;
+  if (flash_safe_execute(read_bootsel, &pressed, 20) != PICO_OK) {
+    diag_log("BOOT check: USB host core didn't pause\n");
+    return false;
+  }
   return pressed;
 }
 
@@ -64,8 +68,10 @@ int main(void) {
   gpio_put(GC3_VBUS_EN_PIN, 1);
 #endif
 
+  diag_init();
   settings_load();
   g_usb_mode = boot_mode_requested();
+  boot_mode_arm(g_usb_mode);
 
   guncon3_init_shared();
   mapper_init();
@@ -89,6 +95,7 @@ int main(void) {
   while (true) {
     tud_task();
     uint32_t now = to_ms_since_boot(get_absolute_time());
+    diag_supervise(now);
 
     if (g_usb_mode == BOOT_WEB) net_task();
 

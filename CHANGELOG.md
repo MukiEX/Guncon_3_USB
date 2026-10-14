@@ -3,6 +3,24 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.4 — Watchdog, core1 heartbeat, persistent crash/diagnostic log
+
+**Reported / requested**
+
+Adapter became unresponsive to all devices after anything was unplugged.
+User asked that any GunCon (not only P1) can open the configurator and that
+BOOT works with no guns attached.
+
+**Changes**
+
+- Hardware watchdog (3 s) + core1 heartbeat supervision (2 s)
+- HardFault / panic capture in uninitialised RAM, reset-reason classification
+- TinyUSB log captured into a ring buffer shown on the System tab
+- Boot mode is re-armed in watchdog scratch, so a self-reset comes back in
+  the same mode; BOOT-button reads that fail (core1 not pausing) are logged
+- System tab: Diagnostics panel (last reset, fault PC/LR, logs, Copy all)
+- Note: C1+C2 on any gun already opened the configurator since 0.1.0
+
 ## 0.1.3 — More hubs/devices; treat all-zero reports as no IR
 
 **Reported / requested**

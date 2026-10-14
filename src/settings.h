@@ -60,6 +60,7 @@ void settings_sanitize(settings_t *s);
 enum { BOOT_XINPUT = 0, BOOT_WEB = 1 };
 int  boot_mode_requested(void);
 void reboot_into(int mode);
+void boot_mode_arm(int mode);
 void reboot_bootsel(void);
 
 const char *aspect_name(int a);

@@ -13,6 +13,7 @@
 #include "settings.h"
 #include "mapper.h"
 #include "guncon3.h"
+#include "diag.h"
 #include "webpage.h"   // generated: webpage_gz[], webpage_gz_len
 
 #define MAX_CONN   6
@@ -275,6 +276,11 @@ static void handle_request(conn_t *c, char *method, char *path, char *body) {
   else if (post && !strcmp(path, "/api/aspect")) api_aspect(c, body);
   else if (post && !strcmp(path, "/api/reboot")) api_reboot(c, body);
   else if (post && !strcmp(path, "/api/defaults")) api_defaults(c);
+  else if (get && !strcmp(path, "/api/diag")) {
+    static char dbuf[16 * 1024];
+    int n = diag_json(dbuf, sizeof(dbuf));
+    respond(c, 200, "application/json", dbuf, (uint32_t) n, false, true);
+  }
   else if (get) {
     // Unknown page (captive-portal probes etc.): send them to the config page
     static const char redir[] = "HTTP/1.1 302 Found\r\nLocation: http://192.168.5.1/\r\nContent-Length: 0\r\n\r\n";

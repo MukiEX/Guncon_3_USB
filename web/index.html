@@ -60,6 +60,7 @@ table{border-collapse:collapse}td,th{padding:6px 14px 6px 0;text-align:left}th{c
 #ovl-ui p{margin:6px 0;color:#aaa;font-size:16px}
 #ovl-ui .act{pointer-events:auto;margin-top:18px;display:flex;gap:10px;justify-content:center;cursor:default}
 #overlay.cursor{cursor:default}
+.logbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;max-height:260px;overflow:auto;white-space:pre-wrap;margin:0}
 kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
 @media (max-width:600px){.form{grid-template-columns:1fr}.form .help{grid-column:1;margin-top:-6px}}
 </style>
@@ -154,6 +155,14 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
     <button class="b" id="toBootsel">Firmware update (BOOTSEL)</button>
     <button class="b danger" id="toDefaults">Reset settings (keeps calibration)</button>
   </div>
+  <h2>Diagnostics</h2>
+  <p class="note">If the adapter crashes or its USB host side stops, it reboots itself into the same mode and records why. Paste this when reporting a problem.</p>
+  <div class="row" style="margin-bottom:10px"><button class="b" id="diagRefresh">Refresh</button><button class="b" id="diagCopy">Copy all</button></div>
+  <div class="kv" id="diagSummary"></div>
+  <h3 class="note" style="margin:14px 0 6px">Before the last reboot</h3>
+  <pre class="mono logbox" id="diagPrev"></pre>
+  <h3 class="note" style="margin:14px 0 6px">This session</h3>
+  <pre class="mono logbox" id="diagCur"></pre>
   <h2>About</h2>
   <div class="kv" id="about"></div>
 </section>
@@ -452,8 +461,26 @@ async function startTest(){
   };
 }
 
+// ---------- diagnostics ----------
+let DG=null;
+async function loadDiag(){
+  try{DG=await (await fetch("/api/diag",{cache:"no-store"})).json()}catch(e){return}
+  const crash=DG.lastReset.startsWith("crash")||DG.lastReset.startsWith("panic");
+  $("#diagSummary").innerHTML=`<span>Boot count</span><span class="mono">${DG.boots}</span><span>Last reset</span><span style="color:${/crash|panic|stopped/.test(DG.lastReset)?"var(--bad)":"inherit"}">${DG.lastReset}</span>`+
+    (crash?`<span>Fault</span><span class="mono">core ${DG.faultCore} · PC ${DG.faultPC} · LR ${DG.faultLR}${DG.panic?" · "+DG.panic:""}</span>`:"");
+  $("#diagPrev").textContent=DG.prevLog||"(empty)";
+  $("#diagCur").textContent=DG.log||"(empty)";
+}
+function initDiag(){
+  $("#diagRefresh").onclick=loadDiag;
+  $("#diagCopy").onclick=async()=>{await loadDiag();if(!DG)return;
+    const t=`GC3-XInput ${S?S.fw:""}\nboots ${DG.boots}, last reset: ${DG.lastReset}\nfault: core ${DG.faultCore} PC ${DG.faultPC} LR ${DG.faultLR} ${DG.panic}\n--- before last reboot ---\n${DG.prevLog}\n--- this session ---\n${DG.log}`;
+    try{await navigator.clipboard.writeText(t);toast("Copied")}catch(e){toast("Clipboard blocked; select the text instead")}};
+  document.querySelector('#tabs button[data-t=system]').addEventListener("click",loadDiag);
+}
+
 // ---------- boot ----------
-buildCards();initForms();loadSettings().catch(()=>{});poll();
+buildCards();initForms();initDiag();loadSettings().catch(()=>{});poll();
 </script>
 </body>
 </html>

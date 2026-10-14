@@ -31,6 +31,8 @@ http.createServer(async (req,res) => {
   if (url === '/' ) { res.writeHead(200,{'Content-Type':'text/html'}); return res.end(page); }
   if (url === '/api/state') return json(res,{aspect,rect:rect(aspect),ms:t*4,guns:guns.map((g,i)=>({...g,...out(i)})),usb:[{a:1,vid:0x05e3,pid:0x0608,hub:0,port:0,spd:0},{a:2,vid:0x0b9a,pid:0x0800,hub:1,port:1,spd:0}],usbEvents:2});
   if (url === '/api/settings' && req.method==='GET') return json(res,S);
+  if (url === '/api/diag') return json(res,{boots:3,lastReset:'USB host core stopped responding',faultCore:0,faultPC:'0x00000000',faultLR:'0x00000000',panic:'',
+    prevLog:'812 boot #2, last reset: power-on\n[7:1] Port 1 status change\nHUB Get Port Status: addr = 7 port = 1\n41230 core1 heartbeat stopped for 2 s, rebooting\n',log:'95 boot #3, last reset: USB host core stopped responding\n'});
   const p = await body(req);
   if (url === '/api/settings') { for (const [k,v] of p) { if (k.startsWith('map')) S.map[+k.slice(3)]=+v; else if (k.startsWith('custom')) S.custom[+k.slice(6)]=+v; else S[k]=+v; } return json(res,{ok:true}); }
   if (url === '/api/calib') { const g=+p.get('gun'); S.calib[g]={valid:1,points:+p.get('points'),h:[0,1,2,3,4,5,6,7].map(k=>+p.get('h'+k))}; S.monitorAspect=+p.get('monitorAspect'); return json(res,{ok:true}); }

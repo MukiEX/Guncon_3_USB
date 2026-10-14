@@ -23,6 +23,7 @@ add_executable(gc3_xinput
   src/guncon3_decode.c
   src/mapper.c
   src/settings.c
+  src/diag.c
   src/xinput_dev.c
   src/usb_descriptors.c
   src/status_led.c
@@ -76,6 +77,7 @@ target_include_directories(gc3_xinput PRIVATE
 )
 
 target_compile_options(gc3_xinput PRIVATE -Wall -Wno-unused-function)
+target_compile_definitions(gc3_xinput PRIVATE PICO_PANIC_FUNCTION=diag_panic)
 if (GC3_PIO_USB_DP_PIN)
   target_compile_definitions(gc3_xinput PRIVATE GC3_PIO_USB_DP_PIN=${GC3_PIO_USB_DP_PIN})
 endif()

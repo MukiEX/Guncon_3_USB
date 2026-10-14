@@ -7,6 +7,7 @@
 #include "hardware/sync.h"
 
 #include "settings.h"
+#include "diag.h"
 
 #define SETTINGS_MAGIC   0x47433358u   // 'GC3X'
 #define SETTINGS_VERSION 1
@@ -119,7 +120,14 @@ int boot_mode_requested(void) {
   return mode;
 }
 
+void boot_mode_arm(int mode) {
+  // Any later watchdog/crash reboot comes back in the same mode (power-on clears this)
+  watchdog_hw->scratch[0] = BOOT_MAGIC;
+  watchdog_hw->scratch[1] = (uint32_t) mode;
+}
+
 void reboot_into(int mode) {
+  diag_note_reboot_requested();
   watchdog_hw->scratch[0] = BOOT_MAGIC;
   watchdog_hw->scratch[1] = (uint32_t) mode;
   watchdog_reboot(0, 0, 10);
@@ -127,6 +135,7 @@ void reboot_into(int mode) {
 }
 
 void reboot_bootsel(void) {
+  diag_note_reboot_requested();
   rom_reset_usb_boot_extra(-1, 0, false);
 }
 

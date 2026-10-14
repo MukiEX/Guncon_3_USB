@@ -5,7 +5,12 @@
 #endif
 
 #define CFG_TUSB_OS           OPT_OS_PICO
-#define CFG_TUSB_DEBUG        0
+// Host-stack log goes to a RAM ring shown on the config page (see diag.c)
+#undef  CFG_TUSB_DEBUG             // the SDK passes 0 on the command line
+#define CFG_TUSB_DEBUG        2
+#define CFG_TUSB_DEBUG_PRINTF diag_printf
+#define CFG_TUH_LOG_LEVEL     2
+#define CFG_TUD_LOG_LEVEL     3          // device stack stays quiet
 #define CFG_TUSB_MEM_SECTION
 #define CFG_TUSB_MEM_ALIGN    __attribute__((aligned(4)))
 

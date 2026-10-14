@@ -19,6 +19,7 @@
 #include "pio_usb.h"
 
 #include "guncon3.h"
+#include "diag.h"
 
 #define GC3_VID 0x0B9A
 #define GC3_PID 0x0800
@@ -319,7 +320,8 @@ void guncon3_host_core1_entry(void) {
   tusb_init(1, &host_init);
 
   while (true) {
-    tuh_task();
+    diag_core1_heartbeat();
+    tuh_task_ext(10, false);   // return at least every 10 ms so the heartbeat keeps moving
   }
 }
 
