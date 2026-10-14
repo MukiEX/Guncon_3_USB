@@ -277,6 +277,9 @@ static bool gc3_xfer_cb(uint8_t daddr, uint8_t ep_addr, xfer_result_t result, ui
   return false;
 }
 
+static volatile bool s_reassign;
+void guncon3_request_reassign(void) { s_reassign = true; }
+
 static void gc3_close(uint8_t daddr) {
   int s = dev_of(daddr);
   if (s < 0) return;
@@ -285,17 +288,25 @@ static void gc3_close(uint8_t daddr) {
   uint32_t l = spin_lock_blocking(g_lock);
   memset(&g_state[slot], 0, sizeof(g_state[slot]));
   spin_unlock(g_lock, l);
+  if (g_settings.player_mode == PLAYERS_BY_ORDER) s_reassign = true;   // close the gap
 }
 
 // Re-seat connected guns after the player mapping changed (runs on core1)
-static volatile bool s_reassign;
-void guncon3_request_reassign(void) { s_reassign = true; }
+
 
 static void do_reassign(void) {
   if (!s_reassign) return;
   s_reassign = false;
-  if (g_settings.player_mode != PLAYERS_BY_PORT) return;   // plug order: keep current seats
   int8_t want[MAX_GUNS];
+  for (int d = 0; d < MAX_GUNS; d++) want[d] = -1;
+  if (g_settings.player_mode == PLAYERS_BY_ORDER) {
+    // Plug order: keep the order, but close gaps (P1 leaves -> P2 becomes P1)
+    int next = 0;
+    for (int slot = 0; slot < MAX_GUNS; slot++)
+      for (int d = 0; d < MAX_GUNS; d++)
+        if (g_dev[d].daddr && g_dev[d].slot == slot) want[d] = (int8_t) next++;
+    goto apply;
+  }
   bool used[MAX_GUNS] = {0};
   // 1) guns whose port is mapped get that player number
   for (int d = 0; d < MAX_GUNS; d++) {
@@ -311,6 +322,7 @@ static void do_reassign(void) {
     if (!used[cur]) { want[d] = (int8_t) cur; used[cur] = true; continue; }
     for (int i = 0; i < MAX_GUNS; i++) if (!used[i]) { want[d] = (int8_t) i; used[i] = true; break; }
   }
+apply:;
   gun_raw_t old[MAX_GUNS];
   uint32_t l = spin_lock_blocking(g_lock);
   memcpy(old, g_state, sizeof(old));
@@ -321,7 +333,7 @@ static void do_reassign(void) {
     g_dev[d].slot = (uint8_t) want[d];
   }
   spin_unlock(g_lock, l);
-  diag_log("players re-seated from the port map\n");
+  diag_log("players re-seated\n");
 }
 
 static usbh_class_driver_t const gc3_driver = {

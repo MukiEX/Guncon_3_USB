@@ -3,6 +3,18 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.2.1 — Plug-order mode exposes only connected guns
+
+**Reported / requested**
+
+User asked that in plug-order mode only plugged-in controllers appear.
+
+**Changes**
+
+- Pad count follows connected guns; re-enumerates via tud_disconnect /
+  tud_connect, debounced (400 ms; 1200 ms for the first connect)
+- bcdDevice tracks pad count so Windows re-reads descriptors
+
 ## 0.2.0 — DualShock 4 output mode
 
 **Reported / requested**

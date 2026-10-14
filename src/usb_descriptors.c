@@ -11,6 +11,7 @@
 #include "ds4.h"
 
 int g_usb_mode = BOOT_XINPUT;
+int g_pads_active = 1;   // pads in the current enumeration (see main.c)
 extern uint8_t tud_network_mac_address[6];
 
 enum { STRID_LANGID = 0, STRID_MANUFACTURER, STRID_PRODUCT, STRID_SERIAL, STRID_INTERFACE, STRID_MAC };
@@ -66,7 +67,7 @@ uint8_t const *tud_descriptor_device_cb(void) {
     s_dev.bcdDevice = 0x0100;
     return (uint8_t const *) &s_dev;
   }
-  s_dev.bcdDevice = (uint16_t)(0x0110 + g_settings.pad_count);
+  s_dev.bcdDevice = (uint16_t)(0x0110 + g_pads_active);
   return (uint8_t const *) &s_dev;
 }
 
@@ -77,7 +78,7 @@ uint8_t const *tud_descriptor_device_cb(void) {
 static uint8_t s_cfg_xinput[9 + XI_ITF_LEN * MAX_GUNS];
 
 static void build_xinput_config(void) {
-  int n = g_settings.pad_count;
+  int n = g_pads_active;
   uint16_t total = (uint16_t)(9 + XI_ITF_LEN * n);
   uint8_t *p = s_cfg_xinput;
   uint8_t cfg[9] = { 9, TUSB_DESC_CONFIGURATION, U16_TO_U8S_LE(total), (uint8_t) n, 1, 0,
@@ -125,7 +126,7 @@ static uint8_t const ecm_configuration[] = {
 static uint8_t s_cfg_ds4[9 + DS4_ITF_LEN * MAX_GUNS];
 
 static void build_ds4_config(void) {
-  int n = g_settings.pad_count;
+  int n = g_pads_active;
   uint16_t total = (uint16_t)(9 + DS4_ITF_LEN * n);
   uint8_t cfg[9] = { 9, TUSB_DESC_CONFIGURATION, U16_TO_U8S_LE(total), (uint8_t) n, 1, 0, TU_BIT(7), 250 };
   uint8_t *p = s_cfg_ds4;
@@ -157,7 +158,7 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
 static uint8_t s_compat[16 + 24 * MAX_GUNS];
 
 static uint16_t build_compat_id(void) {
-  int n = g_settings.pad_count;
+  int n = g_pads_active;
   uint32_t len = 16 + 24 * n;
   memset(s_compat, 0, sizeof(s_compat));
   s_compat[0] = len & 0xFF; s_compat[1] = (len >> 8) & 0xFF;

@@ -60,6 +60,30 @@ static bool bootsel_pressed(void) {
 }
 
 //--------------------------------------------------------------------+
+// Plug-order mode: re-enumerate with exactly as many pads as connected guns.
+// Changes are debounced so plugging in several guns at once costs one reconnect.
+//--------------------------------------------------------------------+
+static void pad_manager(uint32_t now) {
+  static uint32_t changed_at;
+  static int pending = -1;
+  int want = 0;
+  for (int i = 0; i < MAX_GUNS; i++) if (mapper_pad(i)->connected) want = i + 1;   // seats are compact
+  if (want > g_settings.pad_count) want = g_settings.pad_count;
+  if (want == g_pads_active) { pending = -1; return; }
+  if (want != pending) { pending = want; changed_at = now; return; }
+  if (now - changed_at < (g_pads_active ? 400u : 1200u)) return;   // first connect: let all guns enumerate
+
+  diag_log("pads %d -> %d, re-enumerating\n", g_pads_active, want);
+  if (tud_connected()) {
+    tud_disconnect();
+    uint32_t t0 = to_ms_since_boot(get_absolute_time());
+    while (to_ms_since_boot(get_absolute_time()) - t0 < 60) { tud_task(); diag_supervise(to_ms_since_boot(get_absolute_time())); }
+  }
+  g_pads_active = want;
+  pending = -1;
+  if (want > 0) tud_connect();
+}
+
 int main(void) {
   set_sys_clock_khz(120000, true);     // PIO-USB needs a multiple of 12 MHz
 
@@ -81,8 +105,14 @@ int main(void) {
   multicore_reset_core1();
   multicore_launch_core1(guncon3_host_core1_entry);
 
+  // Plug-order mode exposes only as many pads as guns are connected: start off the bus and
+  // let pad_manager() connect once guns have had a moment to enumerate.
+  bool dynamic_pads = (g_usb_mode == BOOT_XINPUT && g_settings.player_mode == PLAYERS_BY_ORDER);
+  g_pads_active = dynamic_pads ? 0 : g_settings.pad_count;
+
   tusb_rhport_init_t dev_init = { .role = TUSB_ROLE_DEVICE, .speed = TUSB_SPEED_AUTO };
   tusb_init(BOARD_TUD_RHPORT, &dev_init);
+  if (dynamic_pads) tud_disconnect();
 
   if (g_usb_mode == BOOT_WEB) {
     net_init();
@@ -108,7 +138,8 @@ int main(void) {
       for (int i = 0; i < MAX_GUNS; i++) any |= mapper_pad(i)->connected;
 
       if (g_usb_mode == BOOT_XINPUT) {
-        for (int i = 0; i < g_settings.pad_count; i++) {
+        if (dynamic_pads) pad_manager(now);
+        for (int i = 0; i < g_pads_active; i++) {
           if (g_settings.pad_type == PAD_DS4) ds4_send((uint8_t) i, &mapper_pad(i)->rep, now);
           else xinput_send(i, &mapper_pad(i)->rep, now);
         }
