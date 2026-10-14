@@ -9,6 +9,9 @@ enum { OFF_CLAMP = 0, OFF_HOLD, OFF_CORNER, OFF_COUNT };
 enum { DEST_NONE = 0, DEST_RSTICK, DEST_DPAD, DEST_COUNT };
 enum { PLAYERS_BY_ORDER = 0, PLAYERS_BY_PORT, PLAYERS_COUNT };
 enum { PAD_DS4 = 0, PAD_XINPUT, PAD_COUNT };   // controller type in controller mode
+// Off-screen reload (reload_flags bits)
+#define RELOAD_ON_EXIT     0x01   // tap reload_button when the aim leaves the game area
+#define RELOAD_ON_TRIGGER  0x02   // trigger pulled while off-screen presses reload_button instead
 #define PORT_PATH_NONE 0xFFFF   // port_map entry: no port assigned
 
 // XInput targets for the button map
@@ -54,6 +57,12 @@ typedef struct {
   uint8_t  player_mode;          // PLAYERS_*
   uint8_t  pad_type;             // PAD_* (was padding in early v2 = 0 = DS4)
   uint16_t port_map[MAX_GUNS];   // player i <- gun on this port path (see guncon3.h)
+
+  // v3
+  uint8_t  reload_flags;         // RELOAD_* bits
+  uint8_t  reload_button;        // XI_* target for the reload press
+  uint8_t  reload_tap_ms;        // length of the RELOAD_ON_EXIT tap
+  uint8_t  _pad3;
 
   uint32_t crc;
 } settings_t;

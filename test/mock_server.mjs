@@ -8,11 +8,11 @@ const inv = m => { const [a,b,c]=m[0],[d,e,f]=m[1],[g,h,i]=m[2]; const A=e*i-f*h
 const ap = (T,p) => { const w=T[2][0]*p[0]+T[2][1]*p[1]+T[2][2]; return [(T[0][0]*p[0]+T[0][1]*p[1]+T[0][2])/w,(T[1][0]*p[0]+T[1][1]*p[1]+T[1][2])/w]; };
 // true raw->screen map for each simulated gun (keystoned, y inverted)
 const TRUE = [0,1].map(k => [[1/26000, 3e-7, .5 + k*.02],[2e-7, -1/19000, .48],[1.5e-6*(k?1:-1), 8e-7, 1]]);
-const S = { fw:'0.1.0-mock', maxGuns:4, pads:4, aspectDefault:0, aspectCycle:3, offscreen:0, margin:8, smoothing:2, stickA:1, stickB:2,
+const S = { fw:'0.1.0-mock', maxGuns:4, pads:4, aspectDefault:0, aspectCycle:3, offscreen:0, margin:8, reloadFlags:1, reloadButton:2, reloadTapMs:60, smoothing:2, stickA:1, stickB:2,
   deadzone:40, hotkeys:1, monitorAspect:16/9, custom:[.125,0,.875,1], map:[1,2,3,4,5,10,9,12,13],
   calib:[0,1,2,3].map(()=>({valid:0,points:0,h:[0,0,0,0,0,0,0,0]})), playerMode:1, portMap:[2,65535,65535,65535] };
 let aspect = 0;
-const guns = [0,1,2,3].map(i => ({ c: i < 2 ? 1 : 0, path: i===0?0x2:0x3, x:0, y:0, z:300, b:0, ax:128, ay:128, bx:128, by:128, ind:3, n:0, bad:0, shot:0, sx:0, sy:0 }));
+const guns = [0,1,2,3].map(i => ({ c: i < 2 ? 1 : 0, path: i===0?0x2:0x3, x:0, y:0, z:300, b:0, ax:128, ay:128, bx:128, by:128, ind:3, n:0, bad:0, shot:0, sx:0, sy:0, rl:0, _off:0 }));
 function setAim(i,u,v){ const r = ap(inv(TRUE[i]), [u,v]); guns[i].x = Math.round(r[0]); guns[i].y = Math.round(r[1]); }
 setAim(0,.3,.4); setAim(1,.7,.6);
 function rect(a){ const m=S.monitorAspect, ar=[0,4/3,3/4,5/4,0][a]; if(a===4) return S.custom; if(!ar) return [0,0,1,1];
@@ -20,6 +20,7 @@ function rect(a){ const m=S.monitorAspect, ar=[0,4/3,3/4,5/4,0][a]; if(a===4) re
 function out(i){ const g=guns[i], c=S.calib[i]; let u=(g.x+32768)/65535, v=(g.y+32768)/65535;
   if (c.valid){ const h=c.h; const w=h[6]*g.x+h[7]*g.y+1; u=(h[0]*g.x+h[1]*g.y+h[2])/w; v=(h[3]*g.x+h[4]*g.y+h[5])/w; }
   const r=rect(aspect); let gx=(u-r[0])/(r[2]-r[0]), gy=(v-r[1])/(r[3]-r[1]); const off=gx<-.08||gx>1.08||gy<-.08||gy>1.08;
+  if (off && !g._off && S.reloadFlags&1) g.rl++; g._off=off;
   gx=Math.min(1,Math.max(0,gx)); gy=Math.min(1,Math.max(0,gy));
   return {cal:c.valid,u,v,gx,gy,off:+off,lx:Math.round(gx*65535-32768),ly:Math.round((1-gy)*65535-32768),xb:0}; }
 const body = req => new Promise(r => { let d=''; req.on('data', c => d += c); req.on('end', () => r(new URLSearchParams(d))); });

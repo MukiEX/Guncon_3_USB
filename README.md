@@ -93,6 +93,23 @@ pillarboxed on a 16:9 monitor, the gun has to be remapped into the centred 4:3 b
   the mode number (1 = Full, 2 = 4:3, …). The power-up default is set in Settings.
 * Off-screen (beyond the game area + margin): clamp to edge, hold last position, or jump to a corner.
 
+## Off-screen reload (Settings → Aim)
+
+Like Sinden / GUN4IR guns, the adapter can press a button for you when the gun is off-screen
+(past the game area + margin, or pointed away so the gun sees no IR):
+
+* **Tap when the aim leaves the screen**: one short press (60 ms by default, adjustable) each time
+  the aim exits. It re-arms after the aim has been back on-screen for 120 ms, so jitter at the edge
+  doesn't machine-gun it.
+* **Trigger pulled off-screen**: that trigger press becomes the reload button instead of the trigger
+  (decided when you pull, kept until you release).
+* Or both. Off by default; never sent while aim is parked.
+
+The reload button defaults to **B** (MAME's default *Button 2*); bind the game's reload action to it.
+MAME's own `offscreen_reload` option only works for real lightgun/mouse devices, not for aim on a
+joystick, so it doesn't help here. The page warns if a gun button is also mapped to the reload button (by default
+A1 → B), since that button would then reload too; remap it on the Buttons tab if that matters.
+
 ## Default mapping (editable on the Buttons tab)
 
 | GunCon 3 | XInput |
@@ -162,7 +179,7 @@ Other knobs are in `src/config.h`.
 | `web/index.html` | the config page (gzipped into the firmware at build time) |
 | `test/` | decoder fuzz test vs. the reference, homography test, mock API server for the page |
 
-Tests: `test/run_tests.sh` (decoder fuzz vs. the C# reference, homography solver); `sudo PICO_SDK_PATH=… test/http_sim/run.sh` (the real HTTP/settings code over lwIP on a TAP device: validates every JSON endpoint and a save round-trip); and
+Tests: `test/run_tests.sh` (decoder fuzz vs. the C# reference, homography solver, off-screen reload + settings migration); `sudo PICO_SDK_PATH=… test/http_sim/run.sh` (the real HTTP/settings code over lwIP on a TAP device: validates every JSON endpoint and a save round-trip); and
 `node test/mock_server.mjs` then open http://localhost:8077.
 
 ## Credits / license

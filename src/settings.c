@@ -10,8 +10,11 @@
 #include "diag.h"
 
 #define SETTINGS_MAGIC   0x47433358u   // 'GC3X'
-#define SETTINGS_VERSION 2
-#define SETTINGS_V1_SIZE (offsetof(settings_t, player_mode) + 4)   // v1 ended with calib[] + crc
+#define SETTINGS_VERSION 3
+#define SETTINGS_V1_SIZE (offsetof(settings_t, player_mode) + 4)    // v1 ended with calib[] + crc
+// v2 ended with port_map[], 2 bytes of padding, then crc. The v3 fields start in that padding.
+#define SETTINGS_V2_DATA (offsetof(settings_t, reload_flags))
+#define SETTINGS_V2_SIZE (((SETTINGS_V2_DATA + 3) & ~(size_t) 3) + 4)
 #define SETTINGS_OFFSET  (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
 
 settings_t g_settings;
@@ -58,6 +61,9 @@ void settings_defaults(settings_t *s) {
   s->pad_type = PAD_XINPUT;
   s->aim_park_at_boot = 0;
   for (int i = 0; i < MAX_GUNS; i++) s->port_map[i] = PORT_PATH_NONE;
+  s->reload_flags = 0;              // off-screen reload off unless asked for
+  s->reload_button = XI_B;          // MAME: Button 2 (what offscreen_reload turns into a reload)
+  s->reload_tap_ms = 60;
 }
 
 static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -76,6 +82,10 @@ void settings_sanitize(settings_t *s) {
   for (int i = 0; i < GB_COUNT; i++) if (s->button_map[i] >= XI_COUNT) s->button_map[i] = XI_NONE;
   if (s->pad_type >= PAD_COUNT) s->pad_type = PAD_XINPUT;
   s->aim_park_at_boot = !!s->aim_park_at_boot;
+  s->reload_flags &= RELOAD_ON_EXIT | RELOAD_ON_TRIGGER;
+  if (s->reload_button >= XI_COUNT || s->reload_button == XI_NONE) s->reload_button = XI_B;
+  if (s->reload_tap_ms < 20) s->reload_tap_ms = 20;
+  if (s->reload_tap_ms > 250) s->reload_tap_ms = 250;
   if (s->player_mode >= PLAYERS_COUNT) s->player_mode = PLAYERS_BY_ORDER;
   if (!(s->monitor_aspect > 0.2f && s->monitor_aspect < 5.0f)) s->monitor_aspect = 16.0f / 9.0f;
   for (int i = 0; i < 4; i++) s->custom_rect[i] = clampf(s->custom_rect[i], 0.0f, 1.0f);
@@ -90,24 +100,28 @@ void settings_sanitize(settings_t *s) {
   }
 }
 
+static bool crc_ok(const settings_t *f, size_t size) {
+  return *(const uint32_t *)((const uint8_t *) f + size - 4) == crc32(f, size - 4);
+}
+
 void settings_load(void) {
   const settings_t *f = (const settings_t *)(XIP_BASE + SETTINGS_OFFSET);
   if (f->magic == SETTINGS_MAGIC && f->version == SETTINGS_VERSION && f->size == sizeof(settings_t) &&
       f->crc == crc32(f, offsetof(settings_t, crc))) {
     memcpy(&g_settings, f, sizeof(g_settings));
-  } else if (f->magic == SETTINGS_MAGIC && f->version == 1 && f->size == SETTINGS_V1_SIZE &&
-             *(const uint32_t *)((const uint8_t *) f + SETTINGS_V1_SIZE - 4) == crc32(f, SETTINGS_V1_SIZE - 4)) {
-    // v1 -> v2: keep everything (calibrations included), add the player-assignment fields
+  } else if (f->magic == SETTINGS_MAGIC && f->version == 2 && f->size == SETTINGS_V2_SIZE && crc_ok(f, SETTINGS_V2_SIZE)) {
+    // v2 -> v3: everything kept, reload options take their defaults
+    settings_defaults(&g_settings);
+    memcpy(&g_settings, f, SETTINGS_V2_DATA);
+  } else if (f->magic == SETTINGS_MAGIC && f->version == 1 && f->size == SETTINGS_V1_SIZE && crc_ok(f, SETTINGS_V1_SIZE)) {
+    // v1 -> v3: keep everything (calibrations included); newer fields take their defaults
     settings_defaults(&g_settings);
     memcpy(&g_settings, f, SETTINGS_V1_SIZE - 4);
-    g_settings.version = SETTINGS_VERSION;
-    g_settings.size = sizeof(settings_t);
-    g_settings.player_mode = PLAYERS_BY_ORDER;
-    g_settings.pad_type = PAD_XINPUT;
-    for (int i = 0; i < MAX_GUNS; i++) g_settings.port_map[i] = PORT_PATH_NONE;
   } else {
     settings_defaults(&g_settings);
   }
+  g_settings.version = SETTINGS_VERSION;
+  g_settings.size = sizeof(settings_t);
   settings_sanitize(&g_settings);
 }
 

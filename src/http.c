@@ -139,11 +139,12 @@ static void api_state(conn_t *c) {
     const pad_out_t *o = mapper_pad(i);
     APPEND("%s{\"c\":%d,\"path\":%u,\"x\":%d,\"y\":%d,\"z\":%d,\"b\":%u,\"ax\":%u,\"ay\":%u,\"bx\":%u,\"by\":%u,"
            "\"ind\":%u,\"n\":%lu,\"bad\":%lu,\"shot\":%lu,\"sx\":%d,\"sy\":%d,\"cal\":%d,"
-           "\"u\":%.4f,\"v\":%.4f,\"gx\":%.4f,\"gy\":%.4f,\"off\":%d,\"lx\":%d,\"ly\":%d,\"xb\":%u,\"age\":%ld,\"mv\":%lu}",
+           "\"u\":%.4f,\"v\":%.4f,\"gx\":%.4f,\"gy\":%.4f,\"off\":%d,\"lx\":%d,\"ly\":%d,\"xb\":%u,\"age\":%ld,\"mv\":%lu,\"rl\":%lu}",
            i ? "," : "", g.connected, g.path, g.x, g.y, g.z, g.buttons, g.ax, g.ay, g.bx, g.by,
            g.ind, (unsigned long) g.reports, (unsigned long) g.bad, (unsigned long) g.shot_seq, g.shot_x, g.shot_y,
            o->calibrated, o->u, o->v, o->gx, o->gy, o->offscreen, o->rep.lx, o->rep.ly, o->rep.buttons,
-           g.connected ? (long)(to_ms_since_boot(get_absolute_time()) - g.last_ms) : -1L, (unsigned long) g.moves);
+           g.connected ? (long)(to_ms_since_boot(get_absolute_time()) - g.last_ms) : -1L, (unsigned long) g.moves,
+           (unsigned long) o->reloads);
   }
   APPEND("],\"usb\":[");
   usb_dev_info_t ud[USB_DIAG_MAX + 4];
@@ -169,6 +170,8 @@ static void api_settings_get(conn_t *c) {
   APPEND("],\"padType\":%d,\"aimParkAtBoot\":%d,\"playerMode\":%d,\"portMap\":[%u,%u,%u,%u]",
          s->pad_type, s->aim_park_at_boot, s->player_mode,
          s->port_map[0], s->port_map[1], s->port_map[2], s->port_map[3]);
+  APPEND(",\"reloadFlags\":%d,\"reloadButton\":%d,\"reloadTapMs\":%d",
+         s->reload_flags, s->reload_button, s->reload_tap_ms);
   APPEND(",\"calib\":[");
   for (int g = 0; g < MAX_GUNS; g++) {
     APPEND("%s{\"valid\":%d,\"points\":%d,\"h\":[", g ? "," : "", s->calib[g].valid, s->calib[g].points);
@@ -196,6 +199,9 @@ static void api_settings_post(conn_t *c, const char *body) {
   if (form_int(body, "aspectCycle", &v)) s->aspect_cycle_mask = (uint8_t) v;
   if (form_int(body, "offscreen", &v)) s->offscreen_mode = (uint8_t) v;
   if (form_int(body, "margin", &v)) s->offscreen_margin = (uint8_t) v;
+  if (form_int(body, "reloadFlags", &v)) s->reload_flags = (uint8_t) v;
+  if (form_int(body, "reloadButton", &v)) s->reload_button = (uint8_t) v;
+  if (form_int(body, "reloadTapMs", &v)) s->reload_tap_ms = (uint8_t) (v < 0 ? 0 : v > 255 ? 255 : v);
   if (form_int(body, "smoothing", &v)) s->smoothing = (uint8_t) v;
   if (form_int(body, "stickA", &v)) s->stick_a_dest = (uint8_t) v;
   if (form_int(body, "stickB", &v)) s->stick_b_dest = (uint8_t) v;

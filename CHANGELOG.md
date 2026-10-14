@@ -3,6 +3,24 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.2.3 — Off-screen reload
+
+**Reported / requested**
+
+User asked for an option to tap B when the aim goes past the screen edge (provided B is free), the
+way other PC light guns do it.
+
+**Changes**
+
+- Settings → Aim → Off-screen reload: tap a button when the aim leaves the game area (or the gun
+  loses IR), and/or turn a trigger pull made off-screen into that button (Sinden / GUN4IR style)
+- Reload button selectable (default B), tap length 20–250 ms (default 60); re-arms after 120 ms
+  back on-screen so edge jitter doesn't repeat it; nothing sent while aim is parked or the gun stalls
+- Page warns when a gun button is also mapped to the reload button (default A1 → B)
+- Gun cards and the fullscreen test show "RELOAD" when one is sent
+- settings v3 (v2 kept and migrated)
+- test/test_mapper.c: host test of the reload logic and the v2 → v3 migration (in run_tests.sh)
+
 ## 0.2.2 — Fix broken settings JSON, BOOT button, HTTP hang; XInput default; aim park
 
 **Reported / requested**

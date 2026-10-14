@@ -153,6 +153,15 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
     <label>Off-screen margin</label>
     <div class="row"><input type="range" id="s_margin" min="0" max="50"><span id="s_marginV" class="mono"></span></div>
     <div class="help">How far past the game area the aim must go before it counts as off-screen.</div>
+    <label>Off-screen reload</label>
+    <select id="s_reload"><option value="0">Off</option><option value="1">Tap a button when the aim leaves the screen</option><option value="2">Trigger pulled off-screen = reload button</option><option value="3">Both</option></select>
+    <div class="help">Like Sinden / GUN4IR guns. Pointing away from the screen (no IR) also counts as off-screen. Not sent while aim is parked.
+      Bind the game's reload (in MAME usually Button 2 = <b>B</b>) to this button.</div>
+    <label>Reload button</label><select id="s_reloadButton"></select>
+    <div class="help" id="reloadWarn"></div>
+    <label>Tap length</label>
+    <div class="row"><input type="range" id="s_reloadTapMs" min="20" max="250" step="10"><span id="s_reloadTapMsV" class="mono"></span></div>
+    <div class="help">How long the leaving-the-screen tap is held. Raise it if a game misses the tap.</div>
     <label>Smoothing</label>
     <div class="row"><input type="range" id="s_smoothing" min="0" max="9"><span id="s_smoothingV" class="mono"></span></div>
     <div class="help">0 = raw. Higher reduces jitter but adds a little lag.</div>
@@ -264,7 +273,9 @@ function renderState(){
     const cal=S&&S.calib[i].valid;
     const bd=c.querySelector(".cal");bd.textContent=cal?"calibrated":"uncalibrated";bd.className="badge cal "+(cal?"ok":"no");
     c.querySelector(".raw").textContent=g.c?`${g.x}, ${g.y}  z ${g.z}`:"—";
-    c.querySelector(".scr").textContent=g.c&&!g.x&&!g.y&&!g.z?"no IR (aim not visible)":g.c&&g.cal?`${(g.u*100).toFixed(1)}%, ${(g.v*100).toFixed(1)}%${g.off?"  off-screen":""}`:"—";
+    if(c._rl!==undefined&&g.rl!==c._rl)c._rlT=nowT;c._rl=g.rl;
+    const rlNow=c._rlT&&nowT-c._rlT<700?"  · RELOAD":"";
+    c.querySelector(".scr").textContent=(g.c&&!g.x&&!g.y&&!g.z?"no IR (aim not visible)":g.c&&g.cal?`${(g.u*100).toFixed(1)}%, ${(g.v*100).toFixed(1)}%${g.off?"  off-screen":""}`:"—")+(g.c?rlNow:"");
     c.querySelector(".stk").textContent=g.c?`${g.lx}, ${g.ly}`:"—";
     c.querySelector(".ir").textContent=!g.c?"—":stale?`NO DATA for ${(g.age/1000).toFixed(1)} s`:`${Math.round(c._hz||0)} rpt/s · aim ${Math.round(c._mz||0)}/s · ind ${g.ind&1?"●":"○"}${g.ind&2?"●":"○"} · ${g.bad} err`;
     c.querySelector(".ir").style.color=stale?"var(--warn)":"";
@@ -298,6 +309,14 @@ async function poll(){
 }
 
 // ---------- settings ----------
+// "Provided it's free": say which gun buttons already send the reload button
+function reloadWarn(){
+  const el=$("#reloadWarn");if(!S||!el)return;
+  const t=+$("#s_reloadButton").value,used=BTN.filter((b,i)=>+S.map[i]===t);
+  el.style.color=used.length&&+$("#s_reload").value?"var(--warn)":"";
+  el.innerHTML=used.length?`${XI[t]} is also mapped to <b>${used.join(", ")}</b> (Buttons tab), so that button will reload too. Pick a free button, or remap ${used.join("/")}.`
+    :`${XI[t]} isn't used by any gun button.`;
+}
 async function loadSettings(){
   S=await (await fetch("/api/settings",{cache:"no-store"})).json();
   $("#fw").textContent="v"+S.fw;
@@ -307,6 +326,8 @@ async function loadSettings(){
   $("#s_monitorAspect").value=(+S.monitorAspect).toFixed(4);
   S.custom.forEach((v,i)=>$("#c"+i).value=(v*100).toFixed(1));
   $("#s_offscreen").value=S.offscreen;
+  $("#s_reload").value=S.reloadFlags;$("#s_reloadButton").value=S.reloadButton;
+  $("#s_reloadTapMs").value=S.reloadTapMs;$("#s_reloadTapMs").oninput();reloadWarn();
   for(const k of ["margin","smoothing","deadzone"]){$("#s_"+k).value=S[k];$("#s_"+k).oninput()}
   $("#s_stickA").value=S.stickA;$("#s_stickB").value=S.stickB;
   $("#s_hotkeys").value=S.hotkeys;
@@ -322,7 +343,9 @@ function initForms(){
   opts($("#s_aspectDefault"),ASPECTS);
   $("#s_cycle").innerHTML=ASPECTS.map((a,i)=>`<label class="note"><input type="checkbox" value="${i}"> ${a}</label>`).join("");
   opts($("#s_stickA"),DEST);opts($("#s_stickB"),DEST);
-  const lbl={margin:v=>v+"%",smoothing:v=>v==0?"off":v,deadzone:v=>v};
+  const lbl={margin:v=>v+"%",smoothing:v=>v==0?"off":v,deadzone:v=>v,reloadTapMs:v=>v+" ms"};
+  $("#s_reloadButton").innerHTML=XI.map((x,j)=>j?`<option value="${j}">${x}</option>`:"").join("");
+  $("#s_reloadButton").onchange=$("#s_reload").onchange=reloadWarn;
   for(const k in lbl){const el=$("#s_"+k);el.oninput=()=>$("#s_"+k+"V").textContent=lbl[k](el.value)}
   $("#calInset").oninput=()=>$("#calInsetV").textContent=$("#calInset").value+"%";$("#calInset").oninput();
   $("#mapTable").innerHTML+=BTN.map((b,i)=>`<tr><td>${b}</td><td><select id="m${i}">${XI.map((x,j)=>`<option value="${j}">${x}</option>`).join("")}</select></td></tr>`).join("");
@@ -332,6 +355,7 @@ function initForms(){
     let cyc=0;document.querySelectorAll("#s_cycle input").forEach(cb=>{if(cb.checked)cyc|=1<<cb.value});
     const o={pads:$("#s_pads").value,padType:$("#s_padType").value,aimParkAtBoot:$("#s_aimPark").value,aspectDefault:$("#s_aspectDefault").value,aspectCycle:cyc,
       monitorAspect:$("#s_monitorAspect").value,offscreen:$("#s_offscreen").value,margin:$("#s_margin").value,
+      reloadFlags:$("#s_reload").value,reloadButton:$("#s_reloadButton").value,reloadTapMs:$("#s_reloadTapMs").value,
       smoothing:$("#s_smoothing").value,stickA:$("#s_stickA").value,stickB:$("#s_stickB").value,
       deadzone:$("#s_deadzone").value,hotkeys:$("#s_hotkeys").value};
     for(let i=0;i<4;i++)o["custom"+i]=(+$("#c"+i).value/100).toFixed(4);
@@ -498,7 +522,9 @@ async function startTest(){
       const sx=(x0+g.gx*(x1-x0))*W,sy=(y0+g.gy*(y1-y0))*H;
       crosshair(sx,sy,PCOL[i],30,g.b&1?5:2);
       ctx.fillStyle=PCOL[i];ctx.font="bold 14px system-ui";
-      ctx.fillText(`P${i+1}${g.cal?"":" (uncalibrated)"}${g.off?" · off-screen":""}`,sx+34,sy-12);
+      const T=performance.now(),R=(window._rl||(window._rl=[]));
+      if(!R[i])R[i]={n:g.rl,t:0};else if(R[i].n!==g.rl)R[i]={n:g.rl,t:T};
+      ctx.fillText(`P${i+1}${g.cal?"":" (uncalibrated)"}${g.off?" · off-screen":""}${R[i].t&&T-R[i].t<700?" · RELOAD":""}`,sx+34,sy-12);
     });
   };
 }

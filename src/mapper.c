@@ -18,7 +18,16 @@ typedef struct {
   uint32_t c1_pulse, c2_pulse;
   bool     combo, combo_used;
   uint32_t combo_start;
+  // off-screen reload
+  bool     was_off;          // aim was off-screen on the previous update
+  bool     reload_armed;     // back on-screen long enough for the next exit to tap
+  uint32_t onscreen_since;
+  uint32_t reload_tap_until; // RELOAD_ON_EXIT tap in progress until this time
+  bool     reload_hold;      // RELOAD_ON_TRIGGER: this trigger press is a reload
+  bool     prev_trig_out;
 } pad_state_t;
+
+#define RELOAD_REARM_MS 120   // on-screen this long before another exit taps again (edge jitter)
 
 static pad_state_t s_ps[MAX_GUNS];
 static pad_out_t   s_out[MAX_GUNS];
@@ -202,7 +211,8 @@ void mapper_update(uint32_t now) {
     o->connected = g.connected;
     if (!g.connected) {
       memset(p, 0, sizeof(*p));
-      o->calibrated = false; o->offscreen = false;
+      p->was_off = true;               // no reload tap just for plugging in
+      o->calibrated = false; o->offscreen = false; o->reloading = false;
       o->rep = r;
       continue;
     }
@@ -258,7 +268,37 @@ void mapper_update(uint32_t now) {
     bool suppress_trig;
     uint16_t b = apply_hotkeys(p, g.buttons, now, &suppress_trig);
     if (suppress_trig) b &= ~(1u << GB_TRIGGER);
+
+    // --- off-screen reload (like Sinden / GUN4IR) ---
+    // Not while parked (aim isn't in use) or while the gun has stopped reporting.
+    uint8_t rf = (s_aim_parked || stalled) ? 0 : g_settings.reload_flags;
+    bool reload = false;
+    bool trig = btn(b, GB_TRIGGER);
+    if (rf & RELOAD_ON_TRIGGER) {
+      if (trig && !p->prev_trig_out) {      // decided at the press, kept until release
+        p->reload_hold = off;
+        if (off) o->reloads++;
+      }
+      if (!trig) p->reload_hold = false;
+      if (p->reload_hold) { b &= ~(1u << GB_TRIGGER); reload = true; }
+    } else {
+      p->reload_hold = false;
+    }
+    p->prev_trig_out = trig;
+    if (!off) {
+      if (p->was_off) p->onscreen_since = now;
+      if (now - p->onscreen_since >= RELOAD_REARM_MS) p->reload_armed = true;
+    } else if ((rf & RELOAD_ON_EXIT) && !p->was_off && p->reload_armed) {
+      p->reload_armed = false;
+      p->reload_tap_until = now + g_settings.reload_tap_ms;
+      o->reloads++;
+    }
+    p->was_off = off;
+    if ((int32_t)(p->reload_tap_until - now) > 0) reload = true;
+    o->reloading = reload;
+
     for (int k = 0; k < GB_COUNT; k++) if (btn(b, k)) apply_target(g_settings.button_map[k], &r);
+    if (reload) apply_target(g_settings.reload_button, &r);
 
     // --- thumbsticks ---
     route_stick(g_settings.stick_a_dest, g.ax, g.ay, &r);

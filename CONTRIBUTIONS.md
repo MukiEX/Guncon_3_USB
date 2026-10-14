@@ -36,7 +36,7 @@ Because the decoder derives from GPL-2.0 code, the project as a whole is GPL-2.0
 
 ## How this history was made
 The repository was assembled after the fact from the source zip handed over at each release
-(0.1.0 … 0.2.2): one commit and one annotated tag per release, dated when that zip was made.
+(0.1.0 … 0.2.3): one commit and one annotated tag per release, dated when that zip was made.
 `lib/` is committed exactly as shipped (already patched from 0.1.6 on), so every tag builds
 offline with `./build.sh`. Intermediate edits between releases weren't kept, so each commit
 is the whole step from one release to the next.

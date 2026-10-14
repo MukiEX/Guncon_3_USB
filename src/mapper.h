@@ -18,6 +18,8 @@ typedef struct {
   bool     calibrated;
   bool     offscreen;
   bool     stalled;     // connected but no reports for a while
+  bool     reloading;   // off-screen reload press being sent
+  uint32_t reloads;     // count of off-screen reloads sent (for the page)
   float    u, v;        // calibrated position on the whole monitor (0..1, may exceed)
   float    gx, gy;      // position inside the active game area (0..1, clamped as output)
   xinput_report_t rep;
