@@ -25,6 +25,7 @@ typedef struct {
   uint8_t  ind;           // bit0 = indicator 1, bit1 = indicator 2 (IR status, informational)
   uint32_t reports;       // good reports received
   uint32_t last_ms;       // time of the last good report (ms since boot)
+  uint32_t moves;         // reports whose aim differs from the previous one (measures the gun's real update rate)
   uint32_t bad;           // checksum failures
   // Trigger-edge capture for calibration: raw aim averaged over the
   // reports just *before* the trigger was pulled (avoids trigger jerk)

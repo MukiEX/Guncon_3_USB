@@ -17,6 +17,7 @@
 #include "tusb.h"
 #include "host/usbh_pvt.h"
 #include "host/hcd.h"
+#include "pio_usb_ll.h"
 #include "pio_usb.h"
 
 #include "guncon3.h"
@@ -137,6 +138,7 @@ static void handle_report(int s, const uint8_t *data) {
 
   uint32_t l = spin_lock_blocking(g_lock);
   gun_raw_t *st = &g_state[s];
+  if (x != st->x || y != st->y) st->moves++;
   st->buttons = b;
   st->x = x; st->y = y; st->z = z;
   st->ax = d[11]; st->ay = d[12];
@@ -162,10 +164,20 @@ static uint16_t gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t co
 
   tuh_bus_info_t tree;
   tuh_bus_info_get(daddr, &tree);
+  // Every GunCon 3 has its own 1-port hub (0C12:8801) in front of it. The port that
+  // identifies the player is the one that internal hub is plugged into.
+  uint8_t player_port = tree.hub_port;
+  if (tree.hub_addr) {
+    uint16_t hv, hp;
+    tuh_bus_info_t up;
+    if (tuh_vid_pid_get(tree.hub_addr, &hv, &hp) && hv == 0x0C12 && hp == 0x8801 &&
+        tuh_bus_info_get(tree.hub_addr, &up))
+      player_port = up.hub_port;    // 0 if the gun sits directly on the adapter
+  }
 
   // Pick a slot: hub port N -> slot N-1 if free, else the first free slot
   int s = -1;
-  if (tree.hub_port >= 1 && tree.hub_port <= MAX_GUNS && g_dev[tree.hub_port - 1].daddr == 0) s = tree.hub_port - 1;
+  if (player_port >= 1 && player_port <= MAX_GUNS && g_dev[player_port - 1].daddr == 0) s = player_port - 1;
   for (int i = 0; s < 0 && i < MAX_GUNS; i++) if (g_dev[i].daddr == 0) s = i;
   if (s < 0) return 0;
 
@@ -200,7 +212,7 @@ static uint16_t gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t co
 
   uint32_t l = spin_lock_blocking(g_lock);
   memset(&g_state[s], 0, sizeof(g_state[s]));
-  g_state[s].hub_port = tree.hub_port;
+  g_state[s].hub_port = player_port;
   spin_unlock(g_lock, l);
   return (uint16_t)(p - (uint8_t const *) itf);
 }
@@ -307,6 +319,64 @@ int guncon3_usb_list(usb_dev_info_t *out, int max, uint32_t *events) {
 // TinyUSB never retries a failed enumeration on the root port by itself: it waits for
 // a physical disconnect. Some hubs miss the first attempt right after power-up, so if
 // something is attached but nothing has enumerated for a while, fake an unplug/replug.
+// PIO-USB detects a root-port unplug from the D+/D- line state, which has proved unreliable
+// here. So also probe whatever sits on the root port with a GET_STATUS every 500 ms; two
+// failures in a row = it's gone, and we raise the same disconnect PIO-USB would have.
+static volatile int8_t s_probe_result;   // 0 = idle, 1 = in flight
+static uint8_t s_probe_fails;
+CFG_TUH_MEM_SECTION static uint8_t s_probe_buf[4] __attribute__((aligned(4)));
+
+static void probe_cb(tuh_xfer_t *xfer) {
+  if (xfer->result == XFER_RESULT_SUCCESS) s_probe_fails = 0;
+  else s_probe_fails++;
+  s_probe_result = 0;
+}
+
+static uint8_t root_device_addr(void) {
+  for (uint8_t a = 1; a <= CFG_TUH_DEVICE_MAX + CFG_TUH_HUB; a++) {
+    tuh_bus_info_t bi;
+    if (tuh_mounted(a) && tuh_bus_info_get(a, &bi) && bi.hub_addr == 0) return a;
+  }
+  return 0;
+}
+
+static void force_root_disconnect(void) {
+  root_port_t *root = PIO_USB_ROOT_PORT(0);
+  uint32_t irq = save_and_disable_interrupts();
+  if (root->connected) {
+    root->connected = false;
+    root->suspended = true;
+    root->ints |= PIO_USB_INTS_DISCONNECT_BITS;
+    for (int i = 0; i < PIO_USB_EP_POOL_CNT; i++) {
+      endpoint_t *ep = PIO_USB_ENDPOINT(i);
+      if (ep->root_idx == 0 && ep->size && ep->has_transfer)
+        pio_usb_ll_transfer_complete(ep, PIO_USB_INTS_ENDPOINT_ERROR_BITS);
+    }
+  }
+  restore_interrupts(irq);
+}
+
+static void root_probe(uint32_t now) {
+  static uint32_t last;
+  if (now - last < 500 || s_probe_result) return;
+  last = now;
+  uint8_t a = root_device_addr();
+  if (!a) { s_probe_fails = 0; return; }
+  if (s_probe_fails >= 2) {
+    diag_log("root port: device %u stopped answering, treating as unplugged\n", a);
+    s_probe_fails = 0;
+    force_root_disconnect();
+    return;
+  }
+  static tusb_control_request_t req = {
+    .bmRequestType_bit = { .recipient = TUSB_REQ_RCPT_DEVICE, .type = TUSB_REQ_TYPE_STANDARD, .direction = TUSB_DIR_IN },
+    .bRequest = TUSB_REQ_GET_STATUS, .wValue = 0, .wIndex = 0, .wLength = 2
+  };
+  tuh_xfer_t x = { .daddr = a, .ep_addr = 0, .setup = &req, .buffer = s_probe_buf, .complete_cb = probe_cb, .user_data = 0 };
+  s_probe_result = 1;
+  if (!tuh_control_xfer(&x)) s_probe_result = 0;   // control pipe busy: try next round
+}
+
 static bool anything_mounted(void) {
   for (uint8_t a = 1; a <= CFG_TUH_DEVICE_MAX + CFG_TUH_HUB; a++) if (tuh_mounted(a)) return true;
   return false;
@@ -314,6 +384,7 @@ static bool anything_mounted(void) {
 
 static void root_port_watchdog(uint32_t *idle_since, uint32_t *gap) {
   uint32_t now = to_ms_since_boot(get_absolute_time());
+  root_probe(now);
   if (!hcd_port_connect_status(1) || anything_mounted()) {
     *idle_since = 0;
     *gap = 2000;

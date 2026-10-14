@@ -3,6 +3,22 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.8 — Root-port liveness probe; GunCon built-in hub awareness; aim rate
+
+**Reported / requested**
+
+Unplugging the hub left guns showing (NO DATA) and replugging did nothing.
+User noticed tracking felt slow with one gun.
+
+**Changes**
+
+- GET_STATUS probe on the root device every 500 ms; two failures force a
+  root disconnect in PIO-USB so TinyUSB tears down the tree
+- Each GunCon 3 contains its own 1-port hub (0C12:8801); player port is
+  taken from where that hub plugs in
+- CFG_TUH_HUB 8
+- Gun cards show report rate and aim-update rate
+
 ## 0.1.7 — Root-port enumeration retry
 
 **Reported / requested**

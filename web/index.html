@@ -226,14 +226,16 @@ function renderState(){
     c.querySelector(".dot").classList.toggle("on",!!g.c&&!stale);
     c.querySelector(".dot").style.background=stale?"var(--warn)":"";
     const prev=c._n,pt=c._t,nowT=performance.now();c._n=g.n;c._t=nowT;
-    if(prev!==undefined&&nowT>pt){const hz=(g.n-prev)*1000/(nowT-pt);c._hz=c._hz===undefined?hz:c._hz*.7+hz*.3}
+    const pmv=c._mv;c._mv=g.mv;
+    if(prev!==undefined&&nowT>pt){const k=1000/(nowT-pt),hz=(g.n-prev)*k,mz=(g.mv-pmv)*k;
+      c._hz=c._hz===undefined?hz:c._hz*.7+hz*.3;c._mz=c._mz===undefined?mz:c._mz*.7+mz*.3}
     c.querySelector(".port").textContent=g.c?(g.port?`hub port ${g.port}`:"direct"):"not connected";
     const cal=S&&S.calib[i].valid;
     const bd=c.querySelector(".cal");bd.textContent=cal?"calibrated":"uncalibrated";bd.className="badge cal "+(cal?"ok":"no");
     c.querySelector(".raw").textContent=g.c?`${g.x}, ${g.y}  z ${g.z}`:"—";
     c.querySelector(".scr").textContent=g.c&&!g.x&&!g.y&&!g.z?"no IR (aim not visible)":g.c&&g.cal?`${(g.u*100).toFixed(1)}%, ${(g.v*100).toFixed(1)}%${g.off?"  off-screen":""}`:"—";
     c.querySelector(".stk").textContent=g.c?`${g.lx}, ${g.ly}`:"—";
-    c.querySelector(".ir").textContent=!g.c?"—":stale?`NO DATA for ${(g.age/1000).toFixed(1)} s`:`${Math.round(c._hz||0)} Hz · ind ${g.ind&1?"●":"○"}${g.ind&2?"●":"○"} · ${g.bad} err`;
+    c.querySelector(".ir").textContent=!g.c?"—":stale?`NO DATA for ${(g.age/1000).toFixed(1)} s`:`${Math.round(c._hz||0)} rpt/s · aim ${Math.round(c._mz||0)}/s · ind ${g.ind&1?"●":"○"}${g.ind&2?"●":"○"} · ${g.bad} err`;
     c.querySelector(".ir").style.color=stale?"var(--warn)":"";
     c.querySelectorAll(".chip").forEach(ch=>ch.classList.toggle("on",!!(g.b>>ch.dataset.k&1)));
     const st=(el,x,y)=>{const d=el.querySelector("i");d.style.left=(x/255*100)+"%";d.style.top=(y/255*100)+"%"};
@@ -243,7 +245,7 @@ function renderState(){
   const la=$("#liveAspect");if(document.activeElement!==la)la.value=ST.aspect;
   if(ST.usb){
     const hx=v=>v.toString(16).toUpperCase().padStart(4,"0"),SP=["full","low","high"];
-    const kind=d=>d.vid==0x0B9A&&d.pid==0x0800?"GunCon 3":d.isHub?"hub":"";
+    const kind=d=>d.vid==0x0B9A&&d.pid==0x0800?"GunCon 3":d.vid==0x0C12&&d.pid==0x8801?"GunCon 3 built-in hub":d.isHub?"hub":"";
     $("#usbTable").innerHTML='<tr><th>addr</th><th>VID:PID</th><th>where</th><th>speed</th><th></th></tr>'+
       (ST.usb.length?ST.usb.map(d=>`<tr><td>${d.a}</td><td>${hx(d.vid)}:${hx(d.pid)}</td><td>${d.hub?`hub ${d.hub} port ${d.port}`:"root port"}</td><td>${SP[d.spd]||d.spd}</td><td>${kind(d)}</td></tr>`).join("")
        :'<tr><td colspan="5" class="note">nothing enumerated</td></tr>');
@@ -258,7 +260,7 @@ async function poll(){
       $("#link").textContent="connected";$("#link").style.color="var(--ok)";
       if(!overlayOn())renderState();else if(window.onState)window.onState(ST);
     }catch(e){$("#link").textContent="disconnected";$("#link").style.color="var(--bad)";await sleep(500)}
-    await sleep(overlayOn()?10:60);
+    await sleep(overlayOn()?0:60);
   }
 }
 
