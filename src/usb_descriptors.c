@@ -8,6 +8,7 @@
 #include "config.h"
 #include "settings.h"
 #include "usb_mode.h"
+#include "ds4.h"
 
 int g_usb_mode = BOOT_XINPUT;
 extern uint8_t tud_network_mac_address[6];
@@ -54,9 +55,17 @@ static tusb_desc_device_t const desc_device_web = {
 
 static tusb_desc_device_t s_dev;
 
+static bool ds4_mode(void) { return g_usb_mode == BOOT_XINPUT && g_settings.pad_type == PAD_DS4; }
+
 uint8_t const *tud_descriptor_device_cb(void) {
   if (g_usb_mode == BOOT_WEB) return (uint8_t const *) &desc_device_web;
   s_dev = desc_device_xinput;
+  if (ds4_mode()) {
+    s_dev.idVendor = DS4_VID;
+    s_dev.idProduct = DS4_PID;
+    s_dev.bcdDevice = 0x0100;
+    return (uint8_t const *) &s_dev;
+  }
   s_dev.bcdDevice = (uint16_t)(0x0110 + g_settings.pad_count);
   return (uint8_t const *) &s_dev;
 }
@@ -111,6 +120,25 @@ static uint8_t const ecm_configuration[] = {
                          NET_BULK_EP_SIZE, CFG_TUD_NET_MTU),
 };
 
+// DualShock 4 configuration: one HID interface (IN + OUT) per pad
+#define DS4_ITF_LEN TUD_HID_INOUT_DESC_LEN
+static uint8_t s_cfg_ds4[9 + DS4_ITF_LEN * MAX_GUNS];
+
+static void build_ds4_config(void) {
+  int n = g_settings.pad_count;
+  uint16_t total = (uint16_t)(9 + DS4_ITF_LEN * n);
+  uint8_t cfg[9] = { 9, TUSB_DESC_CONFIGURATION, U16_TO_U8S_LE(total), (uint8_t) n, 1, 0, TU_BIT(7), 250 };
+  uint8_t *p = s_cfg_ds4;
+  memcpy(p, cfg, 9); p += 9;
+  for (int i = 0; i < n; i++) {
+    uint8_t itf[DS4_ITF_LEN] = {
+      TUD_HID_INOUT_DESCRIPTOR((uint8_t) i, 0, HID_ITF_PROTOCOL_NONE, ds4_report_descriptor_len,
+                               (uint8_t)(0x01 + i), (uint8_t)(0x81 + i), 64, 1)
+    };
+    memcpy(p, itf, DS4_ITF_LEN); p += DS4_ITF_LEN;
+  }
+}
+
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
   if (g_usb_mode == BOOT_WEB) {
     if (index == 0) return rndis_configuration;
@@ -118,6 +146,7 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
     return NULL;
   }
   if (index != 0) return NULL;
+  if (ds4_mode()) { build_ds4_config(); return s_cfg_ds4; }
   build_xinput_config();
   return s_cfg_xinput;
 }
@@ -146,7 +175,7 @@ static uint16_t build_compat_id(void) {
 
 bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *req) {
   if (stage != CONTROL_STAGE_SETUP) return true;
-  if (g_usb_mode != BOOT_XINPUT) return false;
+  if (g_usb_mode != BOOT_XINPUT || ds4_mode()) return false;
   if (req->bRequest == MS_OS_VENDOR_CODE && req->wIndex == 0x0004) {
     uint16_t len = build_compat_id();
     return tud_control_xfer(rhport, req, s_compat, len < req->wLength ? len : req->wLength);
@@ -167,8 +196,8 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
 
   switch (index) {
     case STRID_LANGID: s_str[1] = 0x0409; n = 1; break;
-    case STRID_MANUFACTURER: str = "GC3X"; break;
-    case STRID_PRODUCT: str = (g_usb_mode == BOOT_WEB) ? "GunCon 3 Adapter (Config)" : "GunCon 3 XInput Adapter"; break;
+    case STRID_MANUFACTURER: str = ds4_mode() ? "Sony Interactive Entertainment" : "GC3X"; break;
+    case STRID_PRODUCT: str = (g_usb_mode == BOOT_WEB) ? "GunCon 3 Adapter (Config)" : ds4_mode() ? "Wireless Controller" : "GunCon 3 XInput Adapter"; break;
     case STRID_SERIAL: pico_get_unique_board_id_string(serial, sizeof(serial)); str = serial; break;
     case STRID_INTERFACE: str = "GunCon 3 Adapter Config Network"; break;
     case STRID_MAC:
@@ -178,7 +207,7 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
       }
       break;
     case 0xEE:
-      if (g_usb_mode != BOOT_XINPUT) return NULL;
+      if (g_usb_mode != BOOT_XINPUT || ds4_mode()) return NULL;
       // MS OS 1.0 string: "MSFT100" + vendor code
       {
         static const char sig[] = "MSFT100";

@@ -3,6 +3,20 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.2.0 — DualShock 4 output mode
+
+**Reported / requested**
+
+User asked for a DS4 mode (as default) to keep Windows' Xbox UI handling
+out of the way.
+
+**Changes**
+
+- HID DS4 (054C:09CC) per pad; feature reports 0x02/0x03/0x12/0xA3
+  answered with a unique MAC per pad (report tables after GP2040-CE, MIT)
+- Extra 16-bit Slider/Dial axes carry full-precision aim in bytes 48-51
+- Controller type selectable in Settings
+
 ## 0.1.9 — Players tab: plug-order or fixed-by-port numbering; settings v2
 
 **Reported / requested**

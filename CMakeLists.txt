@@ -25,6 +25,7 @@ add_executable(gc3_xinput
   src/settings.c
   src/diag.c
   src/xinput_dev.c
+  src/ds4.c
   src/usb_descriptors.c
   src/status_led.c
   src/net.c

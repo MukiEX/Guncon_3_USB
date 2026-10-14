@@ -71,7 +71,7 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
 </head>
 <body>
 <header>
-  <h1>GunCon 3 → XInput</h1><span class="tag" id="fw"></span><span class="sp"></span>
+  <h1>GunCon 3 Adapter</h1><span class="tag" id="fw"></span><span class="sp"></span>
   <span class="tag" id="link">connecting…</span>
 </header>
 <nav id="tabs">
@@ -124,7 +124,10 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
 <section id="settings">
   <h2>Output</h2>
   <div class="form">
-    <label>XInput pads</label>
+    <label>Controller type</label>
+    <select id="s_padType"><option value="0">DualShock 4 (recommended)</option><option value="1">Xbox 360 (XInput)</option></select>
+    <div class="help">DualShock 4 avoids Windows' Xbox-controller handling (Game Bar, UI navigation). Its sticks are 8-bit, so the aim is also sent as two 16-bit axes (Slider and Dial); map Lightgun X/Y to those for full precision. Takes effect next time it starts in controller mode.</div>
+    <label>Pads</label>
     <select id="s_pads"><option>1</option><option>2</option><option>3</option><option>4</option></select>
     <div class="help">How many controllers the PC sees. Takes effect next time it starts in controller mode.</div>
   </div>
@@ -171,7 +174,7 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
 
 <section id="system">
   <h2>Mode</h2>
-  <p class="note">This page only exists in config mode; in controller mode the adapter is 1–4 XInput pads.<br>
+  <p class="note">This page only exists in config mode; in controller mode the adapter is 1–4 DualShock 4 or XInput pads.<br>
   To get back here: hold <b>C1 + C2</b> on a gun for 3 s, or hold the board's <b>BOOT</b> button for 1 s.</p>
   <div class="row">
     <button class="b pri" id="toXinput">Restart as controllers</button>
@@ -293,7 +296,7 @@ async function poll(){
 async function loadSettings(){
   S=await (await fetch("/api/settings",{cache:"no-store"})).json();
   $("#fw").textContent="v"+S.fw;
-  $("#s_pads").value=S.pads;
+  $("#s_pads").value=S.pads;$("#s_padType").value=S.padType;
   $("#s_aspectDefault").value=S.aspectDefault;
   document.querySelectorAll("#s_cycle input").forEach(cb=>cb.checked=!!(S.aspectCycle>>cb.value&1));
   $("#s_monitorAspect").value=(+S.monitorAspect).toFixed(4);
@@ -322,7 +325,7 @@ function initForms(){
   $("#aspectHint").textContent=`this screen: ${screen.width}×${screen.height}`;
   $("#saveSettings").onclick=async()=>{
     let cyc=0;document.querySelectorAll("#s_cycle input").forEach(cb=>{if(cb.checked)cyc|=1<<cb.value});
-    const o={pads:$("#s_pads").value,aspectDefault:$("#s_aspectDefault").value,aspectCycle:cyc,
+    const o={pads:$("#s_pads").value,padType:$("#s_padType").value,aspectDefault:$("#s_aspectDefault").value,aspectCycle:cyc,
       monitorAspect:$("#s_monitorAspect").value,offscreen:$("#s_offscreen").value,margin:$("#s_margin").value,
       smoothing:$("#s_smoothing").value,stickA:$("#s_stickA").value,stickB:$("#s_stickB").value,
       deadzone:$("#s_deadzone").value,hotkeys:$("#s_hotkeys").value};

@@ -165,7 +165,7 @@ static void api_settings_get(conn_t *c) {
          FW_VERSION, MAX_GUNS, s->pad_count, s->aspect_default, s->aspect_cycle_mask, s->offscreen_mode,
          s->offscreen_margin, s->smoothing, s->stick_a_dest, s->stick_b_dest, s->dpad_deadzone, s->hotkeys,
          s->monitor_aspect, s->custom_rect[0], s->custom_rect[1], s->custom_rect[2], s->custom_rect[3]);
-  APPEND(",\"playerMode\":%d,\"portMap\":[%u,%u,%u,%u]", s->player_mode,
+  APPEND(",\"padType\":%d,\"playerMode\":%d,\"portMap\":[%u,%u,%u,%u]", s->pad_type, s->player_mode,
          s->port_map[0], s->port_map[1], s->port_map[2], s->port_map[3]);
   for (int i = 0; i < GB_COUNT; i++) APPEND("%s%d", i ? "," : "", s->button_map[i]);
   APPEND("],\"calib\":[");
@@ -189,6 +189,7 @@ static void api_settings_post(conn_t *c, const char *body) {
   float f;
   char key[16];
   if (form_int(body, "pads", &v)) s->pad_count = (uint8_t) v;
+  if (form_int(body, "padType", &v)) s->pad_type = (uint8_t) v;
   if (form_int(body, "aspectDefault", &v)) s->aspect_default = (uint8_t) v;
   if (form_int(body, "aspectCycle", &v)) s->aspect_cycle_mask = (uint8_t) v;
   if (form_int(body, "offscreen", &v)) s->offscreen_mode = (uint8_t) v;

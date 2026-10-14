@@ -24,6 +24,7 @@
 #include "net.h"
 #include "http.h"
 #include "diag.h"
+#include "ds4.h"
 
 //--------------------------------------------------------------------+
 // BOOTSEL button (read through the QSPI CS line; flash is unusable meanwhile,
@@ -107,7 +108,10 @@ int main(void) {
       for (int i = 0; i < MAX_GUNS; i++) any |= mapper_pad(i)->connected;
 
       if (g_usb_mode == BOOT_XINPUT) {
-        for (int i = 0; i < g_settings.pad_count; i++) xinput_send(i, &mapper_pad(i)->rep, now);
+        for (int i = 0; i < g_settings.pad_count; i++) {
+          if (g_settings.pad_type == PAD_DS4) ds4_send((uint8_t) i, &mapper_pad(i)->rep, now);
+          else xinput_send(i, &mapper_pad(i)->rep, now);
+        }
         led_set_base(any ? LED_GREEN : LED_AMBER, !any);
         if (mapper_take_webmode_request()) reboot_into(BOOT_WEB);
       } else {

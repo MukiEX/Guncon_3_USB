@@ -1,4 +1,4 @@
-# GC3-XInput — GunCon 3 → XInput adapter for RP2040 / RP2350
+# GC3-XInput — GunCon 3 → DualShock 4 / XInput adapter for RP2040 / RP2350
 
 Turns up to four Namco GunCon 3 light guns into XInput gamepads whose **left stick is the
 absolute aim position**, for MAME-style "joystick as light gun" setups. Calibration runs in
@@ -56,6 +56,19 @@ so keep each gun on the same hub port.
 
 **Fullscreen test** draws every gun's crosshair exactly where its stick output lands, inside
 the current game area.
+
+## Controller type (Settings → Output)
+
+* **DualShock 4** (default): each gun appears as a USB DS4 ("Wireless Controller", 054C:09CC).
+  Windows treats it as a plain HID game controller, so no Xbox Game Bar / UI-navigation hijacking.
+  DS4 sticks are 8-bit (256 steps across the screen), so the aim is **also** sent as two 16-bit
+  axes, *Slider* (X) and *Dial* (Y), in bytes the real DS4 leaves as padding. In MAME, bind
+  Lightgun X/Y to those for full precision. Buttons follow the Buttons-tab mapping, translated
+  A→Cross, B→Circle, X→Square, Y→Triangle, LB/RB→L1/R1, LT/RT→L2/R2, Back→Share, Start→Options,
+  Guide→PS. Feature reports (calibration, definition, pairing, firmware) are answered so Steam,
+  DS4Windows and Linux `hid-playstation` accept it; each pad reports its own MAC. Note: on Linux,
+  `hid-playstation` ignores the descriptor, so there you only get the 8-bit sticks.
+* **Xbox 360 (XInput)**: 16-bit sticks everywhere, but subject to Windows' Xbox controller handling.
 
 ## Player numbers
 

@@ -72,6 +72,7 @@ void settings_sanitize(settings_t *s) {
   if (s->stick_b_dest >= DEST_COUNT) s->stick_b_dest = DEST_NONE;
   if (s->dpad_deadzone > 127) s->dpad_deadzone = 127;
   for (int i = 0; i < GB_COUNT; i++) if (s->button_map[i] >= XI_COUNT) s->button_map[i] = XI_NONE;
+  if (s->pad_type >= PAD_COUNT) s->pad_type = PAD_DS4;
   if (s->player_mode >= PLAYERS_COUNT) s->player_mode = PLAYERS_BY_ORDER;
   if (!(s->monitor_aspect > 0.2f && s->monitor_aspect < 5.0f)) s->monitor_aspect = 16.0f / 9.0f;
   for (int i = 0; i < 4; i++) s->custom_rect[i] = clampf(s->custom_rect[i], 0.0f, 1.0f);
