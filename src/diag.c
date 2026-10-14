@@ -134,6 +134,7 @@ void diag_log(const char *fmt, ...) {
 int diag_printf(const char *fmt, ...) {
   static const char *const skip[] = { "on EP %02X", "xfer callback", "Claimed EP", "Released EP", "Queue EP" };
   for (unsigned i = 0; i < sizeof(skip) / sizeof(skip[0]); i++) if (strstr(fmt, skip[i])) return 0;
+  if (!strcmp(fmt, "OK\r\n")) return 0;   // usbh_edpt_xfer success: once per gun report
   va_list ap; va_start(ap, fmt); vlog(fmt, ap); va_end(ap);
   return 0;
 }

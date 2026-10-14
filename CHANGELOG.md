@@ -3,6 +3,17 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.5 — Filter per-transfer TinyUSB log spam
+
+**Reported / requested**
+
+Diag log filled with 'OK' lines.
+
+**Changes**
+
+- Drop per-transfer lines (on EP / Queue EP / Claimed / Released /
+  xfer callback / OK) from the diagnostic ring
+
 ## 0.1.4 — Watchdog, core1 heartbeat, persistent crash/diagnostic log
 
 **Reported / requested**
