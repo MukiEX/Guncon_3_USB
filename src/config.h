@@ -4,7 +4,7 @@
 #include "pico.h"
 
 #define FW_NAME     "GC3-XInput"
-#define FW_VERSION  "0.1.1"
+#define FW_VERSION  "0.1.2"
 
 // Up to this many GunCon 3s (and XInput pads). 4 = XInput maximum.
 #define MAX_GUNS 4
@@ -33,7 +33,11 @@
 #endif
 // 1 if the LED expects R,G,B byte order instead of the usual G,R,B
 #ifndef GC3_WS2812_RGB_ORDER
-  #define GC3_WS2812_RGB_ORDER 0
+  #ifdef WAVESHARE_RP2350_USB_A
+    #define GC3_WS2812_RGB_ORDER 1     // this board's LED is R,G,B (green showed as red)
+  #else
+    #define GC3_WS2812_RGB_ORDER 0
+  #endif
 #endif
 
 // ---- USB identity in XInput mode -------------------------------------------

@@ -31,6 +31,14 @@ typedef struct {
   int16_t  shot_x, shot_y;
 } gun_raw_t;
 
+// USB host diagnostics
+#define USB_DIAG_MAX 8
+typedef struct {
+  uint8_t  addr, hub_addr, hub_port, speed;   // speed: 0 full, 1 low, 2 high (TinyUSB tusb_speed_t)
+  uint16_t vid, pid;
+} usb_dev_info_t;
+int guncon3_usb_list(usb_dev_info_t *out, uint32_t *events);
+
 // Core0, before launching core1
 void guncon3_init_shared(void);
 

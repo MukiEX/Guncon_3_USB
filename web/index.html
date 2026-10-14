@@ -83,6 +83,9 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
     <select id="liveAspect"></select>
   </div>
   <div class="grid" id="gunGrid"></div>
+  <h2>USB devices</h2>
+  <p class="note">Everything the adapter's USB-A port has finished setting up (hubs included). GunCon 3 is 0B9A:0800.</p>
+  <table class="mono" id="usbTable"><tr><th>addr</th><th>VID:PID</th><th>where</th><th>speed</th><th></th></tr></table>
   <h2>Calibration</h2>
   <p class="note">Run this in fullscreen on the monitor you play on, from where you play. Each gun keeps its own calibration, tied to its hub port.</p>
   <div class="form">
@@ -224,6 +227,13 @@ function renderState(){
     c.querySelector(".cal-btn").disabled=!g.c;
   });
   const la=$("#liveAspect");if(document.activeElement!==la)la.value=ST.aspect;
+  if(ST.usb){
+    const hx=v=>v.toString(16).toUpperCase().padStart(4,"0"),SP=["full","low","high"];
+    const kind=d=>d.vid==0x0B9A&&d.pid==0x0800?"GunCon 3":ST.usb.some(o=>o.hub===d.a)?"hub":"";
+    $("#usbTable").innerHTML='<tr><th>addr</th><th>VID:PID</th><th>where</th><th>speed</th><th></th></tr>'+
+      (ST.usb.length?ST.usb.map(d=>`<tr><td>${d.a}</td><td>${hx(d.vid)}:${hx(d.pid)}</td><td>${d.hub?`hub ${d.hub} port ${d.port}`:"root port"}</td><td>${SP[d.spd]||d.spd}</td><td>${kind(d)}</td></tr>`).join("")
+       :'<tr><td colspan="5" class="note">nothing enumerated</td></tr>');
+  }
 }
 
 async function poll(){

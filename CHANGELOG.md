@@ -3,6 +3,21 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.2 — Switch to TinyUSB 0.21 for hub support; USB device list; LED colour fix
+
+**Reported / requested**
+
+Guns not detected when plugged through a hub (only worked if hub + guns
+were connected before plugging in the hub); LED showed red for green.
+
+**Changes**
+
+- Vendor TinyUSB 0.21.0 (lib/tinyusb) instead of the SDK's copy for its
+  much better hub handling; port to the 0.21 API (driver open returns
+  bytes consumed, tuh_bus_info_get, usbd_edpt_xfer is_isr argument)
+- System tab: list of enumerated USB devices
+- WS2812 on this board is R,G,B order
+
 ## 0.1.1 — Fix config-mode network stall; move to 192.168.5.1
 
 **Reported / requested**

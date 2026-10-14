@@ -51,7 +51,7 @@ static uint16_t xi_open(uint8_t rhport, tusb_desc_interface_t const *itf, uint16
   }
   if (!p->ep_in) return 0;
 
-  if (p->ep_out) usbd_edpt_xfer(rhport, p->ep_out, s_buf[s_count].out, 32);
+  if (p->ep_out) usbd_edpt_xfer(rhport, p->ep_out, s_buf[s_count].out, 32, false);
   p->open = true;
   s_count++;
   return len;
@@ -67,7 +67,7 @@ static bool xi_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, ui
   for (int i = 0; i < s_count; i++) {
     if (ep_addr == s_pad[i].ep_out) {
       // Rumble / LED-ring commands from the host: nothing to drive on a GunCon, just re-arm
-      usbd_edpt_xfer(rhport, ep_addr, s_buf[i].out, 32);
+      usbd_edpt_xfer(rhport, ep_addr, s_buf[i].out, 32, false);
       return true;
     }
     if (ep_addr == s_pad[i].ep_in) return true;
@@ -100,7 +100,7 @@ bool xinput_send(int pad, const void *report20, uint32_t now_ms) {
   if (usbd_edpt_busy(0, p->ep_in)) return false;
   if (!usbd_edpt_claim(0, p->ep_in)) return false;
   memcpy(s_buf[pad].in, report20, 20);
-  if (!usbd_edpt_xfer(0, p->ep_in, s_buf[pad].in, 20)) {
+  if (!usbd_edpt_xfer(0, p->ep_in, s_buf[pad].in, 20, false)) {
     usbd_edpt_release(0, p->ep_in);
     return false;
   }

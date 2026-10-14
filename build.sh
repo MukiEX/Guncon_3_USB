@@ -2,6 +2,7 @@
 # Build all targets. Needs PICO_SDK_PATH and arm-none-eabi-gcc on PATH.
 set -e
 cd "$(dirname "$0")"
+[ -f lib/tinyusb/src/tusb.c ] || git clone --depth 1 -b 0.21.0 https://github.com/hathach/tinyusb lib/tinyusb
 [ -f lib/Pico-PIO-USB/src/pio_usb.c ] || git clone --depth 1 https://github.com/sekigon-gonnoc/Pico-PIO-USB lib/Pico-PIO-USB
 mkdir -p dist
 build() {  # name board [extra cmake args]

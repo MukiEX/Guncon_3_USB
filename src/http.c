@@ -143,7 +143,14 @@ static void api_state(conn_t *c) {
            g.ind, (unsigned long) g.reports, (unsigned long) g.bad, (unsigned long) g.shot_seq, g.shot_x, g.shot_y,
            o->calibrated, o->u, o->v, o->gx, o->gy, o->offscreen, o->rep.lx, o->rep.ly, o->rep.buttons);
   }
-  APPEND("]}");
+  APPEND("],\"usb\":[");
+  usb_dev_info_t ud[USB_DIAG_MAX];
+  uint32_t ev;
+  int nd = guncon3_usb_list(ud, &ev);
+  for (int i = 0; i < nd; i++)
+    APPEND("%s{\"a\":%u,\"vid\":%u,\"pid\":%u,\"hub\":%u,\"port\":%u,\"spd\":%u}", i ? "," : "",
+           ud[i].addr, ud[i].vid, ud[i].pid, ud[i].hub_addr, ud[i].hub_port, ud[i].speed);
+  APPEND("],\"usbEvents\":%lu}", (unsigned long) ev);
   respond_json(c, n);
 }
 

@@ -5,7 +5,8 @@ if (NOT PICO_BOARD)
   set(PICO_BOARD waveshare_rp2350_usb_a)
 endif()
 
-# Pico-PIO-USB lives in lib/ (git submodule)
+# TinyUSB 0.21 (newer than the SDK's bundled copy; better hub handling) and Pico-PIO-USB live in lib/
+set(PICO_TINYUSB_PATH ${CMAKE_CURRENT_LIST_DIR}/lib/tinyusb)
 set(PICO_PIO_USB_PATH ${CMAKE_CURRENT_LIST_DIR}/lib/Pico-PIO-USB)
 
 include(pico_sdk_import.cmake)

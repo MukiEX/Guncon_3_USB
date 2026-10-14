@@ -16,7 +16,6 @@
 #include "pico/sync.h"
 #include "tusb.h"
 #include "host/usbh_pvt.h"
-#include "host/hcd.h"
 #include "pio_usb.h"
 
 #include "guncon3.h"
@@ -152,20 +151,20 @@ static void handle_report(int s, const uint8_t *data) {
 static bool gc3_init(void) { memset(g_dev, 0, sizeof(g_dev)); return true; }
 static bool gc3_deinit(void) { return true; }
 
-static bool gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t const *itf, uint16_t max_len) {
+static uint16_t gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t const *itf, uint16_t max_len) {
   (void) rhport;
   uint16_t vid, pid;
-  if (!tuh_vid_pid_get(daddr, &vid, &pid) || vid != GC3_VID || pid != GC3_PID) return false;
-  if (itf->bNumEndpoints < 2) return false;
+  if (!tuh_vid_pid_get(daddr, &vid, &pid) || vid != GC3_VID || pid != GC3_PID) return 0;
+  if (itf->bNumEndpoints < 2) return 0;
 
-  hcd_devtree_info_t tree;
-  hcd_devtree_get_info(daddr, &tree);
+  tuh_bus_info_t tree;
+  tuh_bus_info_get(daddr, &tree);
 
   // Pick a slot: hub port N -> slot N-1 if free, else the first free slot
   int s = -1;
   if (tree.hub_port >= 1 && tree.hub_port <= MAX_GUNS && g_dev[tree.hub_port - 1].daddr == 0) s = tree.hub_port - 1;
   for (int i = 0; s < 0 && i < MAX_GUNS; i++) if (g_dev[i].daddr == 0) s = i;
-  if (s < 0) return false;
+  if (s < 0) return 0;
 
   gun_dev_t *g = &g_dev[s];
   memset(g, 0, sizeof(*g));
@@ -174,11 +173,11 @@ static bool gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t const 
   uint8_t const *end = p + max_len;
   p = tu_desc_next(p);
   int found = 0;
-  while (p < end && found < itf->bNumEndpoints) {
+  while (p < end) {
     if (tu_desc_type(p) == TUSB_DESC_INTERFACE) break;
     if (tu_desc_type(p) == TUSB_DESC_ENDPOINT) {
       tusb_desc_endpoint_t const *ep = (tusb_desc_endpoint_t const *) p;
-      if (!tuh_edpt_open(daddr, ep)) return false;
+      if (!tuh_edpt_open(daddr, ep)) return 0;
       if (tu_edpt_dir(ep->bEndpointAddress) == TUSB_DIR_IN) {
         g->ep_in = ep->bEndpointAddress;
         g->mps_in = tu_edpt_packet_size(ep);
@@ -189,8 +188,9 @@ static bool gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t const 
       found++;
     }
     p = tu_desc_next(p);
+    if (found >= itf->bNumEndpoints) break;
   }
-  if (!g->ep_in || !g->ep_out) return false;
+  if (!g->ep_in || !g->ep_out) return 0;
 
   g->daddr = daddr;
   g->itf_num = itf->bInterfaceNumber;
@@ -199,7 +199,7 @@ static bool gc3_open(uint8_t rhport, uint8_t daddr, tusb_desc_interface_t const 
   memset(&g_state[s], 0, sizeof(g_state[s]));
   g_state[s].hub_port = tree.hub_port;
   spin_unlock(g_lock, l);
-  return true;
+  return (uint16_t)(p - (uint8_t const *) itf);
 }
 
 static bool gc3_set_config(uint8_t daddr, uint8_t itf_num) {
@@ -256,6 +256,41 @@ usbh_class_driver_t const *usbh_app_driver_get_cb(uint8_t *driver_count) {
 }
 
 //--------------------------------------------------------------------+
+// USB device list (diagnostics for the config page): every device the host
+// stack finishes enumerating, hubs included
+//--------------------------------------------------------------------+
+static usb_dev_info_t g_usb[USB_DIAG_MAX];
+static uint32_t g_usb_events;
+
+void tuh_mount_cb(uint8_t daddr) {
+  usb_dev_info_t d = {0};
+  d.addr = daddr;
+  tuh_vid_pid_get(daddr, &d.vid, &d.pid);
+  tuh_bus_info_t bi;
+  if (tuh_bus_info_get(daddr, &bi)) { d.hub_addr = bi.hub_addr; d.hub_port = bi.hub_port; d.speed = bi.speed; }
+  uint32_t l = spin_lock_blocking(g_lock);
+  for (int i = 0; i < USB_DIAG_MAX; i++) if (!g_usb[i].addr) { g_usb[i] = d; break; }
+  g_usb_events++;
+  spin_unlock(g_lock, l);
+}
+
+void tuh_umount_cb(uint8_t daddr) {
+  uint32_t l = spin_lock_blocking(g_lock);
+  for (int i = 0; i < USB_DIAG_MAX; i++) if (g_usb[i].addr == daddr) memset(&g_usb[i], 0, sizeof(g_usb[i]));
+  g_usb_events++;
+  spin_unlock(g_lock, l);
+}
+
+int guncon3_usb_list(usb_dev_info_t *out, uint32_t *events) {
+  int n = 0;
+  uint32_t l = spin_lock_blocking(g_lock);
+  for (int i = 0; i < USB_DIAG_MAX; i++) if (g_usb[i].addr) out[n++] = g_usb[i];
+  if (events) *events = g_usb_events;
+  spin_unlock(g_lock, l);
+  return n;
+}
+
+//--------------------------------------------------------------------+
 // Core1 entry
 //--------------------------------------------------------------------+
 void guncon3_host_core1_entry(void) {
@@ -270,7 +305,8 @@ void guncon3_host_core1_entry(void) {
   pio_cfg.pio_rx_num = 1;
 #endif
   tuh_configure(1, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
-  tuh_init(1);
+  tusb_rhport_init_t host_init = { .role = TUSB_ROLE_HOST, .speed = TUSB_SPEED_AUTO };
+  tusb_init(1, &host_init);
 
   while (true) {
     tuh_task();

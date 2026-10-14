@@ -93,6 +93,7 @@ static void build_xinput_config(void) {
 //--------------------------------------------------------------------+
 // Web (network) configurations — from TinyUSB net_lwip_webserver example
 //--------------------------------------------------------------------+
+#define NET_BULK_EP_SIZE 64     // full-speed bulk
 #define EPNUM_NET_NOTIF 0x81
 #define EPNUM_NET_OUT   0x02
 #define EPNUM_NET_IN    0x82
@@ -101,13 +102,13 @@ static void build_xinput_config(void) {
 
 static uint8_t const rndis_configuration[] = {
   TUD_CONFIG_DESCRIPTOR(1, 2, 0, RNDIS_CFG_LEN, 0, 500),
-  TUD_RNDIS_DESCRIPTOR(0, STRID_INTERFACE, EPNUM_NET_NOTIF, 8, EPNUM_NET_OUT, EPNUM_NET_IN, CFG_TUD_NET_ENDPOINT_SIZE),
+  TUD_RNDIS_DESCRIPTOR(0, STRID_INTERFACE, EPNUM_NET_NOTIF, 8, EPNUM_NET_OUT, EPNUM_NET_IN, NET_BULK_EP_SIZE),
 };
 
 static uint8_t const ecm_configuration[] = {
   TUD_CONFIG_DESCRIPTOR(2, 2, 0, ECM_CFG_LEN, 0, 500),
   TUD_CDC_ECM_DESCRIPTOR(0, STRID_INTERFACE, STRID_MAC, EPNUM_NET_NOTIF, 64, EPNUM_NET_OUT, EPNUM_NET_IN,
-                         CFG_TUD_NET_ENDPOINT_SIZE, CFG_TUD_NET_MTU),
+                         NET_BULK_EP_SIZE, CFG_TUD_NET_MTU),
 };
 
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {

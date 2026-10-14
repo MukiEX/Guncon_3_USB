@@ -104,6 +104,13 @@ These couldn't be checked without the hardware and are worth confirming first:
 * **Power:** four guns through an unpowered hub off the board's 5 V may be marginal; a powered
   hub is the safe choice.
 
+## Troubleshooting config mode
+
+* **Adapter gets 192.168.5.2 but the page/ping fails:** a VPN is capturing the traffic. With a
+  Tailscale exit node active, Tailscale blocks local subnets unless *Allow local network access*
+  is enabled in its exit-node menu.
+* **Browser fails instantly:** it may be forcing HTTPS. Type `http://192.168.5.1/` explicitly.
+
 ## Building
 
 Needs Pico SDK 2.x (with TinyUSB and lwIP submodules), `arm-none-eabi-gcc`, CMake, Ninja, Python 3.
