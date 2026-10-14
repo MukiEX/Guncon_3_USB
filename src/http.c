@@ -270,7 +270,7 @@ static void handle_request(conn_t *c, char *method, char *path, char *body) {
   else if (post && !strcmp(path, "/api/defaults")) api_defaults(c);
   else if (get) {
     // Unknown page (captive-portal probes etc.): send them to the config page
-    static const char redir[] = "HTTP/1.1 302 Found\r\nLocation: http://192.168.7.1/\r\nContent-Length: 0\r\n\r\n";
+    static const char redir[] = "HTTP/1.1 302 Found\r\nLocation: http://192.168.5.1/\r\nContent-Length: 0\r\n\r\n";
     tcp_write(c->pcb, redir, sizeof(redir) - 1, 0);
     tcp_output(c->pcb);
   } else respond(c, 404, "text/plain", "not found", 9, false, false);

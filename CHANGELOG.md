@@ -3,6 +3,22 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.1.1 — Fix config-mode network stall; move to 192.168.5.1
+
+**Reported / requested**
+
+Page and ping failed in config mode (LED blue). User asked to move the
+subnet to 192.168.5.1 to avoid clashing with other USB-network projects.
+User found the remaining failure was their Tailscale exit node.
+
+**Changes**
+
+- net.c: tud_network_recv_cb returned true for frames it had dropped,
+  stalling the RX path; now returns false when the frame wasn't kept
+- linkoutput waits at most 50 ms instead of blocking
+- Address 192.168.5.1, DHCP leases .2-.4
+- README: VPN / Tailscale exit-node troubleshooting note
+
 ## 0.1.0 — Initial GunCon 3 -> XInput adapter firmware
 
 **Reported / requested**

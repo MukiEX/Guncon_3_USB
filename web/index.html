@@ -252,7 +252,7 @@ async function loadSettings(){
   $("#s_stickA").value=S.stickA;$("#s_stickB").value=S.stickB;
   $("#s_hotkeys").value=S.hotkeys;
   S.map.forEach((v,i)=>$("#m"+i).value=v);
-  $("#about").innerHTML=`<span>Firmware</span><span class="mono">${S.fw}</span><span>Guns supported</span><span>${S.maxGuns}</span><span>Address</span><span class="mono">http://192.168.7.1</span>`;
+  $("#about").innerHTML=`<span>Firmware</span><span class="mono">${S.fw}</span><span>Guns supported</span><span>${S.maxGuns}</span><span>Address</span><span class="mono">http://192.168.5.1</span>`;
   renderState();
 }
 

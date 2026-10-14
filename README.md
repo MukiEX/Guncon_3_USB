@@ -31,7 +31,7 @@ Later updates: System tab → *Firmware update (BOOTSEL)*.
 | | Controller mode (default) | Config mode |
 |---|---|---|
 | PC sees | 1–4 XInput pads | USB network adapter (RNDIS / CDC-ECM) |
-| Open | — | http://192.168.7.1 |
+| Open | — | http://192.168.5.1 |
 | LED | green = gun(s) connected, breathing amber = none | breathing blue |
 | Enter | power-up, or *Restart as controllers* | hold **C1 + C2** on a gun for 3 s, or hold **BOOT** 1 s |
 
@@ -39,7 +39,7 @@ Holding BOOT for 1 s toggles between the two modes at any time.
 
 ## Calibration
 
-1. Enter config mode, open http://192.168.7.1 on the PC whose monitor you'll play on.
+1. Enter config mode, open http://192.168.5.1 on the PC whose monitor you'll play on.
 2. Guns tab → **Calibrate** on a player. The page goes fullscreen (needed so the targets
    land on the real screen edges; the monitor's aspect ratio is recorded at the same time).
 3. Shoot each target (5-point: corners + centre, or 9-point grid). Backspace steps back.
