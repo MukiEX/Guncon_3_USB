@@ -12,7 +12,7 @@ typedef struct {
   bool     has_last;
   uint32_t last_reports;
   // hotkeys
-  bool     prev_c1, prev_c2, prev_trig;
+  bool     prev_c1, prev_c2, prev_trig, prev_a1;
   uint32_t c1_down, c2_down;
   bool     c1_rep, c2_rep;
   uint32_t c1_pulse, c2_pulse;
@@ -24,6 +24,7 @@ static pad_state_t s_ps[MAX_GUNS];
 static pad_out_t   s_out[MAX_GUNS];
 static int         s_aspect;
 static bool        s_web_req;
+static bool        s_aim_parked;   // aim output held at centre (keeps a desktop usable)
 
 static const float ASPECT_RATIO[ASPECT_COUNT] = { 0.0f, 4.0f / 3.0f, 3.0f / 4.0f, 5.0f / 4.0f, 0.0f };
 
@@ -31,11 +32,18 @@ void mapper_init(void) {
   memset(s_ps, 0, sizeof(s_ps));
   memset(s_out, 0, sizeof(s_out));
   s_aspect = g_settings.aspect_default;
+  s_aim_parked = g_settings.aim_park_at_boot;
 }
 
 int mapper_aspect(void) { return s_aspect; }
 void mapper_set_aspect(int a) { if (a >= 0 && a < ASPECT_COUNT) s_aspect = a; }
 const pad_out_t *mapper_pad(int i) { return &s_out[i]; }
+
+bool mapper_aim_parked(void) { return s_aim_parked; }
+void mapper_set_aim_parked(bool parked) {
+  s_aim_parked = parked;
+  led_flash(parked ? 3 : 1, parked ? LED_AMBER : LED_GREEN);
+}
 
 bool mapper_take_webmode_request(void) {
   bool r = s_web_req;
@@ -85,10 +93,10 @@ static inline bool btn(uint16_t b, int i) { return (b >> i) & 1; }
 // Lone C1/C2 presses are passed through (delayed by the window; quick taps become a pulse).
 static uint16_t apply_hotkeys(pad_state_t *p, uint16_t b, uint32_t now, bool *suppress_trigger) {
   *suppress_trigger = false;
-  bool c1 = btn(b, GB_C1), c2 = btn(b, GB_C2), trig = btn(b, GB_TRIGGER);
+  bool c1 = btn(b, GB_C1), c2 = btn(b, GB_C2), trig = btn(b, GB_TRIGGER), a1 = btn(b, GB_A1);
 
   if (!g_settings.hotkeys) {
-    p->prev_c1 = c1; p->prev_c2 = c2; p->prev_trig = trig;
+    p->prev_c1 = c1; p->prev_c2 = c2; p->prev_trig = trig; p->prev_a1 = a1;
     return b;
   }
 
@@ -101,6 +109,8 @@ static uint16_t apply_hotkeys(pad_state_t *p, uint16_t b, uint32_t now, bool *su
       p->c1_rep = p->c2_rep = false;
     } else {
       if (trig && !p->prev_trig) { cycle_aspect(); p->combo_used = true; }
+      if (a1 && !p->prev_a1) { mapper_set_aim_parked(!s_aim_parked); p->combo_used = true; }
+      b &= ~(1u << GB_A1);
       if (c1 && c2 && !p->combo_used && (now - p->combo_start) >= HOTKEY_WEBMODE_MS) {
         p->combo_used = true;
         s_web_req = true;
@@ -127,7 +137,7 @@ static uint16_t apply_hotkeys(pad_state_t *p, uint16_t b, uint32_t now, bool *su
     }
   }
 
-  p->prev_c1 = c1; p->prev_c2 = c2; p->prev_trig = trig;
+  p->prev_c1 = c1; p->prev_c2 = c2; p->prev_trig = trig; p->prev_a1 = a1;
   return b;
 }
 
@@ -239,6 +249,7 @@ void mapper_update(uint32_t now) {
       ly = to_axis(1.0f - cy);            // XInput +Y is up, screen +Y is down
       if (!off) { p->last_lx = lx; p->last_ly = ly; p->has_last = true; }
     }
+    if (s_aim_parked) { lx = 0; ly = 0; }   // centre: no desktop/UI drift from the aim
     o->gx = (lx + 32768) / 65535.0f;
     o->gy = 1.0f - (ly + 32768) / 65535.0f;
     r.lx = lx; r.ly = ly;

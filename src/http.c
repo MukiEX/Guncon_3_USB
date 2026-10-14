@@ -131,8 +131,8 @@ static void api_state(conn_t *c) {
   int n = 0;
   float r[4];
   mapper_game_rect(mapper_aspect(), r);
-  APPEND("{\"aspect\":%d,\"rect\":[%.4f,%.4f,%.4f,%.4f],\"ms\":%lu,\"guns\":[",
-         mapper_aspect(), r[0], r[1], r[2], r[3], (unsigned long) to_ms_since_boot(get_absolute_time()));
+  APPEND("{\"aimParked\":%d,\"aspect\":%d,\"rect\":[%.4f,%.4f,%.4f,%.4f],\"ms\":%lu,\"guns\":[",
+         mapper_aim_parked(), mapper_aspect(), r[0], r[1], r[2], r[3], (unsigned long) to_ms_since_boot(get_absolute_time()));
   for (int i = 0; i < MAX_GUNS; i++) {
     gun_raw_t g;
     guncon3_get(i, &g);
@@ -165,10 +165,11 @@ static void api_settings_get(conn_t *c) {
          FW_VERSION, MAX_GUNS, s->pad_count, s->aspect_default, s->aspect_cycle_mask, s->offscreen_mode,
          s->offscreen_margin, s->smoothing, s->stick_a_dest, s->stick_b_dest, s->dpad_deadzone, s->hotkeys,
          s->monitor_aspect, s->custom_rect[0], s->custom_rect[1], s->custom_rect[2], s->custom_rect[3]);
-  APPEND(",\"padType\":%d,\"playerMode\":%d,\"portMap\":[%u,%u,%u,%u]", s->pad_type, s->player_mode,
-         s->port_map[0], s->port_map[1], s->port_map[2], s->port_map[3]);
   for (int i = 0; i < GB_COUNT; i++) APPEND("%s%d", i ? "," : "", s->button_map[i]);
-  APPEND("],\"calib\":[");
+  APPEND("],\"padType\":%d,\"aimParkAtBoot\":%d,\"playerMode\":%d,\"portMap\":[%u,%u,%u,%u]",
+         s->pad_type, s->aim_park_at_boot, s->player_mode,
+         s->port_map[0], s->port_map[1], s->port_map[2], s->port_map[3]);
+  APPEND(",\"calib\":[");
   for (int g = 0; g < MAX_GUNS; g++) {
     APPEND("%s{\"valid\":%d,\"points\":%d,\"h\":[", g ? "," : "", s->calib[g].valid, s->calib[g].points);
     for (int k = 0; k < 8; k++) APPEND("%s%.9g", k ? "," : "", (double) s->calib[g].h[k]);
@@ -190,6 +191,7 @@ static void api_settings_post(conn_t *c, const char *body) {
   char key[16];
   if (form_int(body, "pads", &v)) s->pad_count = (uint8_t) v;
   if (form_int(body, "padType", &v)) s->pad_type = (uint8_t) v;
+  if (form_int(body, "aimParkAtBoot", &v)) s->aim_park_at_boot = (uint8_t) !!v;
   if (form_int(body, "aspectDefault", &v)) s->aspect_default = (uint8_t) v;
   if (form_int(body, "aspectCycle", &v)) s->aspect_cycle_mask = (uint8_t) v;
   if (form_int(body, "offscreen", &v)) s->offscreen_mode = (uint8_t) v;
@@ -253,6 +255,12 @@ static void api_aspect(conn_t *c, const char *body) {
   api_ok(c, true);
 }
 
+static void api_aim(conn_t *c, const char *body) {
+  int v;
+  if (form_int(body, "parked", &v)) mapper_set_aim_parked(v != 0);
+  api_ok(c, true);
+}
+
 static void api_reboot(conn_t *c, const char *body) {
   char m[16] = "xinput";
   form_get(body, "mode", m, sizeof(m));
@@ -287,6 +295,7 @@ static void handle_request(conn_t *c, char *method, char *path, char *body) {
   else if (post && !strcmp(path, "/api/calib/clear")) api_calib_clear(c, body);
   else if (post && !strcmp(path, "/api/aspect")) api_aspect(c, body);
   else if (post && !strcmp(path, "/api/reboot")) api_reboot(c, body);
+  else if (post && !strcmp(path, "/api/aim")) api_aim(c, body);
   else if (post && !strcmp(path, "/api/defaults")) api_defaults(c);
   else if (get && !strcmp(path, "/api/diag")) {
     static char dbuf[16 * 1024];
@@ -309,16 +318,18 @@ static int try_parse(conn_t *c) {
   int hlen = (int)(hend - c->req) + 4;
 
   int clen = 0;
+  bool want_close = false;
   for (char *l = c->req; l && l < hend; l = strstr(l, "\r\n"), l = l ? l + 2 : NULL) {
     if (!strncasecmp(l, "Content-Length:", 15)) clen = atoi(l + 15);
     if (!strncasecmp(l, "Connection:", 11)) {
       char *eol = strstr(l, "\r\n");
       char *cl = strcasestr(l, "close");
-      if (cl && eol && cl < eol) c->close_after = true;
+      if (cl && eol && cl < eol) want_close = true;
     }
   }
   if (clen < 0 || hlen + clen > REQ_MAX) return -1;
-  if (c->req_len < hlen + clen) return 0;
+  if (c->req_len < hlen + clen) return 0;      // body still arriving: don't mark closing yet
+  if (want_close) c->close_after = true;
 
   // Request line
   char *sp1 = strchr(c->req, ' ');

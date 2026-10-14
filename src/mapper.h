@@ -35,5 +35,9 @@ void mapper_game_rect(int aspect, float r[4]);   // x0,y0,x1,y1 of the game area
 // True once a gun held C1+C2 for HOTKEY_WEBMODE_MS (cleared on read)
 bool mapper_take_webmode_request(void);
 
+// Aim park: hold every pad's aim at centre (C1+C2+A1, or the config page)
+bool mapper_aim_parked(void);
+void mapper_set_aim_parked(bool parked);
+
 // Homography helper (exposed for tests)
 bool mapper_apply_h(const float h[8], float x, float y, float *u, float *v);

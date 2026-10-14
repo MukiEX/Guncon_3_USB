@@ -162,7 +162,7 @@ Other knobs are in `src/config.h`.
 | `web/index.html` | the config page (gzipped into the firmware at build time) |
 | `test/` | decoder fuzz test vs. the reference, homography test, mock API server for the page |
 
-Tests: `test/run_tests.sh` (decoder fuzz vs. the C# reference, homography solver), and
+Tests: `test/run_tests.sh` (decoder fuzz vs. the C# reference, homography solver); `sudo PICO_SDK_PATH=… test/http_sim/run.sh` (the real HTTP/settings code over lwIP on a TAP device: validates every JSON endpoint and a save round-trip); and
 `node test/mock_server.mjs` then open http://localhost:8077.
 
 ## Credits / license

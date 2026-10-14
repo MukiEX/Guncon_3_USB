@@ -3,6 +3,27 @@
 One entry per release. *Reported* = what was found on real hardware or asked for
 (by the project owner); *Changes* = the code written in response (by Claude).
 
+## 0.2.2 — Fix broken settings JSON, BOOT button, HTTP hang; XInput default; aim park
+
+**Reported / requested**
+
+User reported: button assignments blank, only one gun in Xbox mode,
+holding BOOT did nothing. Asked for XInput as default again and a way to
+temporarily turn off the left stick.
+
+**Changes**
+
+- http.c: new settings fields were emitted inside "map":[...] since
+  0.1.9, so the page failed to parse settings and could save Pads=1 and an
+  empty map (root cause of the first two reports)
+- BOOTSEL read used CS_PIN_INDEX 2 on RP2350; correct is 1
+- HTTP: a Connection: close request whose POST body arrived split hung
+- Default output XInput again (DS4 remains selectable)
+- Aim park: C1+C2+A1, a page button, or an at-power-up setting centres all
+  sticks so the guns don't drive Windows/Steam
+- test/http_sim: runs the real http.c/settings.c/net.c over lwIP on a TAP
+  device and validates every JSON endpoint and a save round-trip
+
 ## 0.2.1 — Plug-order mode exposes only connected guns
 
 **Reported / requested**

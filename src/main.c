@@ -30,11 +30,10 @@
 // BOOTSEL button (read through the QSPI CS line; flash is unusable meanwhile,
 // so core1 is parked through flash_safe_execute while we look)
 //--------------------------------------------------------------------+
+#define CS_PIN_INDEX 1   // QSPI SS is pad index 1 on both RP2040 and RP2350 (see pico-examples)
 #if PICO_RP2040
-  #define CS_PIN_INDEX 1
   #define CS_BIT (1u << 1)
 #else
-  #define CS_PIN_INDEX 2
   #define CS_BIT SIO_GPIO_HI_IN_QSPI_CSN_BITS
 #endif
 

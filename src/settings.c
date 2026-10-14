@@ -55,6 +55,8 @@ void settings_defaults(settings_t *s) {
   s->custom_rect[0] = 0.125f; s->custom_rect[1] = 0.0f;
   s->custom_rect[2] = 0.875f; s->custom_rect[3] = 1.0f;
   s->player_mode = PLAYERS_BY_ORDER;
+  s->pad_type = PAD_XINPUT;
+  s->aim_park_at_boot = 0;
   for (int i = 0; i < MAX_GUNS; i++) s->port_map[i] = PORT_PATH_NONE;
 }
 
@@ -72,7 +74,8 @@ void settings_sanitize(settings_t *s) {
   if (s->stick_b_dest >= DEST_COUNT) s->stick_b_dest = DEST_NONE;
   if (s->dpad_deadzone > 127) s->dpad_deadzone = 127;
   for (int i = 0; i < GB_COUNT; i++) if (s->button_map[i] >= XI_COUNT) s->button_map[i] = XI_NONE;
-  if (s->pad_type >= PAD_COUNT) s->pad_type = PAD_DS4;
+  if (s->pad_type >= PAD_COUNT) s->pad_type = PAD_XINPUT;
+  s->aim_park_at_boot = !!s->aim_park_at_boot;
   if (s->player_mode >= PLAYERS_COUNT) s->player_mode = PLAYERS_BY_ORDER;
   if (!(s->monitor_aspect > 0.2f && s->monitor_aspect < 5.0f)) s->monitor_aspect = 16.0f / 9.0f;
   for (int i = 0; i < 4; i++) s->custom_rect[i] = clampf(s->custom_rect[i], 0.0f, 1.0f);
@@ -100,6 +103,7 @@ void settings_load(void) {
     g_settings.version = SETTINGS_VERSION;
     g_settings.size = sizeof(settings_t);
     g_settings.player_mode = PLAYERS_BY_ORDER;
+    g_settings.pad_type = PAD_XINPUT;
     for (int i = 0; i < MAX_GUNS; i++) g_settings.port_map[i] = PORT_PATH_NONE;
   } else {
     settings_defaults(&g_settings);

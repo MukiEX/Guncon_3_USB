@@ -85,6 +85,7 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
 <section id="guns" class="on">
   <div class="row" style="margin-bottom:14px">
     <button class="b pri" id="btnTest">Fullscreen test</button>
+    <button class="b" id="btnAim" title="C1+C2+A1 on any gun">Aim: live</button>
     <span class="note">Active aspect</span>
     <select id="liveAspect"></select>
   </div>
@@ -125,8 +126,11 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
   <h2>Output</h2>
   <div class="form">
     <label>Controller type</label>
-    <select id="s_padType"><option value="0">DualShock 4 (recommended)</option><option value="1">Xbox 360 (XInput)</option></select>
-    <div class="help">DualShock 4 avoids Windows' Xbox-controller handling (Game Bar, UI navigation). Its sticks are 8-bit, so the aim is also sent as two 16-bit axes (Slider and Dial); map Lightgun X/Y to those for full precision. Takes effect next time it starts in controller mode.</div>
+    <select id="s_padType"><option value="1">Xbox 360 (XInput)</option><option value="0">DualShock 4</option></select>
+    <div class="help">Xbox: 16-bit sticks. DualShock 4: sidesteps Windows' Xbox-controller handling; its sticks are 8-bit, so the aim is also sent as two 16-bit axes (Slider and Dial) — map Lightgun X/Y to those. Takes effect next time it starts in controller mode.</div>
+    <label>Aim at power-up</label>
+    <select id="s_aimPark"><option value="0">Live</option><option value="1">Parked (stick centred until C1+C2+A1)</option></select>
+    <div class="help">Parking holds every gun's aim stick at centre so it can't drive desktop / Steam / Windows UI. Toggle any time with C1+C2+A1 or the Aim button on the Guns tab.</div>
     <label>Pads</label>
     <select id="s_pads"><option>1</option><option>2</option><option>3</option><option>4</option></select>
     <div class="help">Players by plug order: the PC sees one controller per connected gun, up to this many (the adapter briefly reconnects when the count changes). Players by port: always exactly this many.</div>
@@ -160,7 +164,7 @@ kbd{background:#333;border-radius:4px;padding:1px 6px;font-size:13px;color:#eee}
     <label>D-pad threshold</label>
     <div class="row"><input type="range" id="s_deadzone" min="5" max="120"><span id="s_deadzoneV" class="mono"></span></div>
     <label>Hotkeys (C1 + C2)</label><select id="s_hotkeys"><option value="1">Enabled</option><option value="0">Disabled</option></select>
-    <div class="help">C1+C2 + Trigger = next aspect. Hold C1+C2 for 3 s = restart into this page. Lone C1/C2 presses still reach the PC.</div>
+    <div class="help">Hold C1+C2, then: Trigger = next aspect · A1 = park/unpark aim. Hold C1+C2 alone for 3 s = restart into this page. Lone C1/C2 presses still reach the PC.</div>
   </div>
   <div class="row" style="margin-top:22px"><button class="b pri" id="saveSettings">Save settings</button></div>
 </section>
@@ -270,6 +274,7 @@ function renderState(){
     c.querySelector(".cal-btn").disabled=!g.c;
   });
   const la=$("#liveAspect");if(document.activeElement!==la)la.value=ST.aspect;
+  const ab=$("#btnAim");ab.textContent=ST.aimParked?"Aim: PARKED":"Aim: live";ab.style.color=ST.aimParked?"var(--warn)":"";
   renderPlayers();
   if(ST.usb){
     const hx=v=>v.toString(16).toUpperCase().padStart(4,"0"),SP=["full","low","high"];
@@ -296,7 +301,7 @@ async function poll(){
 async function loadSettings(){
   S=await (await fetch("/api/settings",{cache:"no-store"})).json();
   $("#fw").textContent="v"+S.fw;
-  $("#s_pads").value=S.pads;$("#s_padType").value=S.padType;
+  $("#s_pads").value=S.pads;$("#s_padType").value=S.padType;$("#s_aimPark").value=S.aimParkAtBoot;
   $("#s_aspectDefault").value=S.aspectDefault;
   document.querySelectorAll("#s_cycle input").forEach(cb=>cb.checked=!!(S.aspectCycle>>cb.value&1));
   $("#s_monitorAspect").value=(+S.monitorAspect).toFixed(4);
@@ -325,7 +330,7 @@ function initForms(){
   $("#aspectHint").textContent=`this screen: ${screen.width}×${screen.height}`;
   $("#saveSettings").onclick=async()=>{
     let cyc=0;document.querySelectorAll("#s_cycle input").forEach(cb=>{if(cb.checked)cyc|=1<<cb.value});
-    const o={pads:$("#s_pads").value,padType:$("#s_padType").value,aspectDefault:$("#s_aspectDefault").value,aspectCycle:cyc,
+    const o={pads:$("#s_pads").value,padType:$("#s_padType").value,aimParkAtBoot:$("#s_aimPark").value,aspectDefault:$("#s_aspectDefault").value,aspectCycle:cyc,
       monitorAspect:$("#s_monitorAspect").value,offscreen:$("#s_offscreen").value,margin:$("#s_margin").value,
       smoothing:$("#s_smoothing").value,stickA:$("#s_stickA").value,stickB:$("#s_stickB").value,
       deadzone:$("#s_deadzone").value,hotkeys:$("#s_hotkeys").value};
@@ -340,6 +345,7 @@ function initForms(){
   $("#toBootsel").onclick=async()=>{if(!confirm("Reboot into the USB bootloader? Copy a .uf2 onto the drive that appears."))return;await post("/api/reboot",{mode:"bootsel"});toast("Rebooting to BOOTSEL…")};
   $("#toDefaults").onclick=async()=>{if(!confirm("Reset all settings to defaults? Calibrations are kept."))return;const r=await post("/api/defaults",{});toast(r.ok?"Defaults restored":"Failed");loadSettings()};
   $("#btnTest").onclick=startTest;
+  $("#btnAim").onclick=()=>post("/api/aim",{parked:ST&&ST.aimParked?0:1});
 }
 
 // ---------- homography: least squares with Hartley normalization ----------

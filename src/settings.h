@@ -42,7 +42,8 @@ typedef struct {
   uint8_t  dpad_deadzone;        // 0..127 raw units for stick -> d-pad
   uint8_t  hotkeys;              // C1+C2 hotkeys enabled
   uint8_t  button_map[GB_COUNT]; // XI_* per gun button
-  uint8_t  _pad[2];
+  uint8_t  aim_park_at_boot;     // 1 = start with aim output parked (stick centred)
+  uint8_t  _pad[1];
 
   float    monitor_aspect;       // width / height of the screen used for calibration
   float    custom_rect[4];       // x0, y0, x1, y1 (normalized) for ASPECT_CUSTOM
