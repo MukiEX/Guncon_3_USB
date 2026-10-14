@@ -1,3 +1,10 @@
+## Credits / license
+
+GunCon 3 protocol and decode tables from [beardypig/guncon3](https://github.com/beardypig/guncon3)
+and [gameotaku79/Guncon3Windows](https://github.com/gameotaku79/Guncon3Windows) (both GPL-2.0),
+so this project is GPL-2.0 too. Networking glue adapted from TinyUSB's `net_lwip_webserver`
+example (MIT); USB host via [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB).
+
 # GC3-XInput — GunCon 3 → DualShock 4 / XInput adapter for RP2040 / RP2350
 
 Turns up to four Namco GunCon 3 light guns into XInput gamepads whose **left stick is the
@@ -181,10 +188,3 @@ Other knobs are in `src/config.h`.
 
 Tests: `test/run_tests.sh` (decoder fuzz vs. the C# reference, homography solver, off-screen reload + settings migration); `sudo PICO_SDK_PATH=… test/http_sim/run.sh` (the real HTTP/settings code over lwIP on a TAP device: validates every JSON endpoint and a save round-trip); and
 `node test/mock_server.mjs` then open http://localhost:8077.
-
-## Credits / license
-
-GunCon 3 protocol and decode tables from [beardypig/guncon3](https://github.com/beardypig/guncon3)
-and [gameotaku79/Guncon3Windows](https://github.com/gameotaku79/Guncon3Windows) (both GPL-2.0),
-so this project is GPL-2.0 too. Networking glue adapted from TinyUSB's `net_lwip_webserver`
-example (MIT); USB host via [Pico-PIO-USB](https://github.com/sekigon-gonnoc/Pico-PIO-USB).
